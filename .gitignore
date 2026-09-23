@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+web-seduc/node_modules/
+
+# Next.js build
+.next/
+web-seduc/.next/
+out/
+web-seduc/out/
+build/
+web-seduc/build/
+
+# Environment files
+.env*
+web-seduc/.env*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.pem
+*.log
