@@ -5,12 +5,23 @@ import "./globals.css";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
+  display: "swap",
+  weight: ["400", "500", "600", "700", "800"],
 });
 
 export const metadata: Metadata = {
-  title: "Painel SEDUC — Resultados Educacionais e Índice de Bônus 2025",
+  title: "Resultados Educacionais e Índice de Bônus das DREs e Escolas Estaduais — SEDUC-PA",
   description:
-    "Sistema de consulta e auditoria dos resultados educacionais e índices de bônus das Diretorias Regionais de Ensino e Escolas Estaduais do Pará — Exercício 2025.",
+    "Portal oficial de consulta, auditoria e acompanhamento de resultados educacionais, metas do IDEB e índices de bonificação das escolas estaduais do Pará — Exercício 2025.",
+  keywords: [
+    "SEDUC-PA",
+    "Educação Pará",
+    "Bônus Escolar",
+    "IDEB",
+    "DRE",
+    "Resultados Educacionais",
+    "Transparência",
+  ],
 };
 
 export default function RootLayout({
@@ -20,7 +31,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body className={`${inter.variable} font-sans antialiased bg-[#F1F3F5] text-[#1A1A1A]`}>
+      <body className={`${inter.variable} font-sans antialiased bg-[#F6F6F6] text-[#1D1D1B] min-h-screen flex flex-col`}>
         {children}
       </body>
     </html>

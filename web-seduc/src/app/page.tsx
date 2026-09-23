@@ -2,7 +2,11 @@
 
 import { useEffect, useState, useCallback } from "react";
 import * as XLSX from "xlsx";
-import HeaderBanner from "@/components/HeaderBanner";
+import TopBar from "@/components/TopBar";
+import HeaderGov from "@/components/HeaderGov";
+import NavBar from "@/components/NavBar";
+import Breadcrumb from "@/components/Breadcrumb";
+import HeroSection from "@/components/HeroSection";
 import KpiCards from "@/components/KpiCards";
 import FilterBar from "@/components/FilterBar";
 import TabPublicadas from "@/components/TabPublicadas";
@@ -10,10 +14,18 @@ import TabNaoPublicadas from "@/components/TabNaoPublicadas";
 import TabEjaAee from "@/components/TabEjaAee";
 import TabIdebDre from "@/components/TabIdebDre";
 import SchoolDrawer from "@/components/SchoolDrawer";
+import FooterGov from "@/components/FooterGov";
 import type { Escola, KpiData, FiltrosData } from "@/lib/types";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, School, AlertCircle, BookOpen, BarChart3 } from "lucide-react";
 
 type TabType = "publicadas" | "nao_publicadas" | "eja_aee" | "ideb_dre";
+
+const TAB_LABELS: Record<TabType, string> = {
+  publicadas: "Escolas Publicadas",
+  nao_publicadas: "Não Publicadas — Pendência de Fluxo",
+  eja_aee: "Bônus EJA e AEE",
+  ideb_dre: "IDEB por Regional DRE",
+};
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<TabType>("publicadas");
@@ -245,15 +257,31 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F1F3F5] text-[#1A1A1A] flex flex-col">
-      {/* Header Banner Oficial */}
-      <HeaderBanner />
+    <div className="min-h-screen bg-[#F6F6F6] text-[#1D1D1B] flex flex-col">
+      {/* 1. Barra Superior Fina Governamental (Acessibilidade & eMAG) */}
+      <TopBar />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        {/* KPI Cards */}
+      {/* 2. Header Oficial da Instituição */}
+      <HeaderGov />
+
+      {/* 3. Menu Horizontal de Navegação */}
+      <NavBar activeTab={activeTab} onSelectTab={handleTabChange} />
+
+      {/* 4. Hero Section com Título Oficial e Metadados */}
+      <HeroSection />
+
+      {/* 5. Área de Conteúdo Principal */}
+      <main
+        id="conteudo-principal"
+        className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6"
+      >
+        {/* Breadcrumb Indicador de Localização */}
+        <Breadcrumb currentTabName={TAB_LABELS[activeTab]} />
+
+        {/* Cards de KPI com Borda Sutil e Indicadores Padronizados */}
         <KpiCards data={kpiData} loading={kpiLoading} />
 
-        {/* Filter Bar */}
+        {/* Barra de Filtros com feedback, responsividade e exportação */}
         <FilterBar
           filtros={filtros}
           search={search}
@@ -269,104 +297,149 @@ export default function Home() {
           onExport={handleExport}
           exporting={exporting}
           onClearFilters={handleClearFilters}
+          totalFilteredRecords={totalRecords}
         />
 
-        {/* Navigation Tabs */}
-        <div className="flex border-b border-[#E2E8F0] space-x-2">
-          <button
-            onClick={() => handleTabChange("publicadas")}
-            className={`px-5 py-3 text-sm font-semibold rounded-t-lg transition-colors cursor-pointer border-b-2 ${
-              activeTab === "publicadas"
-                ? "border-[#9E0018] text-[#9E0018] bg-white"
-                : "border-transparent text-[#4A5568] hover:text-[#1A1A1A] hover:bg-white/50"
-            }`}
+        {/* Abas de Navegação de Dados com Design System Oficial */}
+        <section aria-label="Tabelas de Resultados">
+          <div
+            role="tablist"
+            className="flex items-center overflow-x-auto border-b border-[#E2E8F0] gap-1 sm:gap-2 no-scrollbar"
           >
-            Escolas Publicadas ({kpiData?.escolas_publicadas ?? "..."})
-          </button>
-          <button
-            onClick={() => handleTabChange("nao_publicadas")}
-            className={`px-5 py-3 text-sm font-semibold rounded-t-lg transition-colors cursor-pointer border-b-2 ${
-              activeTab === "nao_publicadas"
-                ? "border-[#9E0018] text-[#9E0018] bg-white"
-                : "border-transparent text-[#4A5568] hover:text-[#1A1A1A] hover:bg-white/50"
-            }`}
-          >
-            Não Publicadas — Pendência de Fluxo ({kpiData?.escolas_nao_publicadas ?? "..."})
-          </button>
-          <button
-            onClick={() => handleTabChange("eja_aee")}
-            className={`px-5 py-3 text-sm font-semibold rounded-t-lg transition-colors cursor-pointer border-b-2 ${
-              activeTab === "eja_aee"
-                ? "border-[#9E0018] text-[#9E0018] bg-white"
-                : "border-transparent text-[#4A5568] hover:text-[#1A1A1A] hover:bg-white/50"
-            }`}
-          >
-            Bônus EJA e AEE ({kpiData?.escolas_eja_aee ?? "..."})
-          </button>
-          <button
-            onClick={() => handleTabChange("ideb_dre")}
-            className={`px-5 py-3 text-sm font-semibold rounded-t-lg transition-colors cursor-pointer border-b-2 ${
-              activeTab === "ideb_dre"
-                ? "border-[#9E0018] text-[#9E0018] bg-white"
-                : "border-transparent text-[#4A5568] hover:text-[#1A1A1A] hover:bg-white/50"
-            }`}
-          >
-            IDEB por DRE
-          </button>
-        </div>
+            <button
+              role="tab"
+              aria-selected={activeTab === "publicadas"}
+              onClick={() => handleTabChange("publicadas")}
+              className={`inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-[3px] transition-colors duration-150 cursor-pointer whitespace-nowrap rounded-t-md ${
+                activeTab === "publicadas"
+                  ? "border-[#A71B2B] text-[#A71B2B] bg-white shadow-2xs"
+                  : "border-transparent text-[#6C757D] hover:text-[#1D1D1B] hover:bg-white/60"
+              }`}
+            >
+              <School className={`w-4 h-4 ${activeTab === "publicadas" ? "text-[#A71B2B]" : "text-[#6C757D]"}`} />
+              <span>Escolas Publicadas</span>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                activeTab === "publicadas" ? "bg-[#FDF2F4] text-[#A71B2B]" : "bg-gray-100 text-[#6C757D]"
+              }`}>
+                {kpiData?.escolas_publicadas ?? "..."}
+              </span>
+            </button>
 
-        {/* Tab Contents */}
-        <div>
-          {activeTab === "publicadas" && (
-            <TabPublicadas
-              data={escolas}
-              loading={tableLoading}
-              onSelectEscola={(cod) => setSelectedSchoolCode(cod)}
-              onClearFilters={handleClearFilters}
-            />
-          )}
+            <button
+              role="tab"
+              aria-selected={activeTab === "nao_publicadas"}
+              onClick={() => handleTabChange("nao_publicadas")}
+              className={`inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-[3px] transition-colors duration-150 cursor-pointer whitespace-nowrap rounded-t-md ${
+                activeTab === "nao_publicadas"
+                  ? "border-[#A71B2B] text-[#A71B2B] bg-white shadow-2xs"
+                  : "border-transparent text-[#6C757D] hover:text-[#1D1D1B] hover:bg-white/60"
+              }`}
+            >
+              <AlertCircle className={`w-4 h-4 ${activeTab === "nao_publicadas" ? "text-[#9E0018]" : "text-[#6C757D]"}`} />
+              <span>Pendência de Fluxo</span>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                activeTab === "nao_publicadas" ? "bg-red-50 text-[#9E0018]" : "bg-gray-100 text-[#6C757D]"
+              }`}>
+                {kpiData?.escolas_nao_publicadas ?? "..."}
+              </span>
+            </button>
 
-          {activeTab === "nao_publicadas" && (
-            <TabNaoPublicadas
-              data={escolas}
-              loading={tableLoading}
-              onSelectEscola={(cod) => setSelectedSchoolCode(cod)}
-              onClearFilters={handleClearFilters}
-            />
-          )}
+            <button
+              role="tab"
+              aria-selected={activeTab === "eja_aee"}
+              onClick={() => handleTabChange("eja_aee")}
+              className={`inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-[3px] transition-colors duration-150 cursor-pointer whitespace-nowrap rounded-t-md ${
+                activeTab === "eja_aee"
+                  ? "border-[#A71B2B] text-[#A71B2B] bg-white shadow-2xs"
+                  : "border-transparent text-[#6C757D] hover:text-[#1D1D1B] hover:bg-white/60"
+              }`}
+            >
+              <BookOpen className={`w-4 h-4 ${activeTab === "eja_aee" ? "text-[#B45309]" : "text-[#6C757D]"}`} />
+              <span>Bônus EJA e AEE</span>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
+                activeTab === "eja_aee" ? "bg-amber-50 text-[#B45309]" : "bg-gray-100 text-[#6C757D]"
+              }`}>
+                {kpiData?.escolas_eja_aee ?? "..."}
+              </span>
+            </button>
 
-          {activeTab === "eja_aee" && (
-            <TabEjaAee
-              data={ejaData}
-              loading={tableLoading}
-              onClearFilters={handleClearFilters}
-            />
-          )}
+            <button
+              role="tab"
+              aria-selected={activeTab === "ideb_dre"}
+              onClick={() => handleTabChange("ideb_dre")}
+              className={`inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-[3px] transition-colors duration-150 cursor-pointer whitespace-nowrap rounded-t-md ${
+                activeTab === "ideb_dre"
+                  ? "border-[#A71B2B] text-[#A71B2B] bg-white shadow-2xs"
+                  : "border-transparent text-[#6C757D] hover:text-[#1D1D1B] hover:bg-white/60"
+              }`}
+            >
+              <BarChart3 className={`w-4 h-4 ${activeTab === "ideb_dre" ? "text-[#A71B2B]" : "text-[#6C757D]"}`} />
+              <span>IDEB por DRE</span>
+            </button>
+          </div>
 
-          {activeTab === "ideb_dre" && (
-            <TabIdebDre dre={dre} />
-          )}
-        </div>
+          {/* Conteúdo das Abas com transição suave */}
+          <div className="pt-4">
+            {activeTab === "publicadas" && (
+              <TabPublicadas
+                data={escolas}
+                loading={tableLoading}
+                onSelectEscola={(cod) => setSelectedSchoolCode(cod)}
+                onClearFilters={handleClearFilters}
+              />
+            )}
 
-        {/* Pagination Bar */}
+            {activeTab === "nao_publicadas" && (
+              <TabNaoPublicadas
+                data={escolas}
+                loading={tableLoading}
+                onSelectEscola={(cod) => setSelectedSchoolCode(cod)}
+                onClearFilters={handleClearFilters}
+              />
+            )}
+
+            {activeTab === "eja_aee" && (
+              <TabEjaAee
+                data={ejaData}
+                loading={tableLoading}
+                onClearFilters={handleClearFilters}
+              />
+            )}
+
+            {activeTab === "ideb_dre" && (
+              <TabIdebDre dre={dre} />
+            )}
+          </div>
+        </section>
+
+        {/* Paginação Institucional Acessível */}
         {totalPages > 1 && activeTab !== "ideb_dre" && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-xl border border-[#E2E8F0] shadow-sm">
-            <span className="text-sm text-[#4A5568]">
-              Mostrando página <strong className="text-[#1A1A1A]">{page}</strong> de{" "}
-              <strong className="text-[#1A1A1A]">{totalPages}</strong> ({totalRecords} registros encontrados)
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-lg border border-[#E2E8F0] shadow-xs">
+            <span className="text-xs sm:text-sm text-[#6C757D]">
+              Mostrando página <strong className="text-[#1D1D1B] font-bold">{page}</strong> de{" "}
+              <strong className="text-[#1D1D1B] font-bold">{totalPages}</strong> &bull;{" "}
+              <span className="text-[#1D1D1B] font-semibold">{totalRecords.toLocaleString("pt-BR")}</span> registros encontrados
             </span>
+
             <div className="flex items-center gap-2">
               <button
                 disabled={page <= 1 || tableLoading}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="inline-flex items-center gap-1 px-3.5 py-2 border border-[#E2E8F0] rounded-lg text-sm font-medium text-[#1A1A1A] hover:bg-[#FDF2F4] hover:text-[#9E0018] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="inline-flex items-center gap-1 px-3 py-1.5 border border-[#E2E8F0] rounded-md text-xs sm:text-sm font-semibold text-[#1D1D1B] hover:bg-[#FDF2F4] hover:text-[#A71B2B] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                aria-label="Página anterior"
               >
                 <ChevronLeft className="w-4 h-4" /> Anterior
               </button>
+
+              <span className="text-xs px-2 font-medium text-[#6C757D]">
+                {page} / {totalPages}
+              </span>
+
               <button
                 disabled={page >= totalPages || tableLoading}
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="inline-flex items-center gap-1 px-3.5 py-2 border border-[#E2E8F0] rounded-lg text-sm font-medium text-[#1A1A1A] hover:bg-[#FDF2F4] hover:text-[#9E0018] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="inline-flex items-center gap-1 px-3 py-1.5 border border-[#E2E8F0] rounded-md text-xs sm:text-sm font-semibold text-[#1D1D1B] hover:bg-[#FDF2F4] hover:text-[#A71B2B] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                aria-label="Próxima página"
               >
                 Próxima <ChevronRight className="w-4 h-4" />
               </button>
@@ -375,7 +448,7 @@ export default function Home() {
         )}
       </main>
 
-      {/* Drawer Lateral */}
+      {/* Ficha 360° da Escola no Drawer Lateral */}
       {selectedSchoolCode && (
         <SchoolDrawer
           codigoEscola={selectedSchoolCode}
@@ -383,10 +456,8 @@ export default function Home() {
         />
       )}
 
-      {/* Footer */}
-      <footer className="bg-white border-t border-[#E2E8F0] py-6 text-center text-xs text-[#4A5568]">
-        <p>SEDUC &mdash; Secretaria de Estado de Educação do Pará | SECTET | Exercício 2025</p>
-      </footer>
+      {/* 6. Rodapé Oficial Institucional */}
+      <FooterGov />
     </div>
   );
 }

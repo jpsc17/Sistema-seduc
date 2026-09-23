@@ -1,18 +1,107 @@
 @import "tailwindcss";
 
+@theme {
+  --color-primary: #A71B2B;
+  --color-primary-dark: #881220;
+  --color-accent: #CD1719;
+  --color-gov-dark: #1D1D1B;
+  --color-gov-muted: #6C757D;
+  --color-gov-nav: #F8F9FA;
+  --color-gov-gray: #A7A9AA;
+  --color-gov-border: #E2E8F0;
+  --color-gov-bg: #F6F6F6;
+  --color-status-success: #15803D;
+  --color-status-warning: #B45309;
+  --color-status-critical: #9E0018;
+}
+
 :root {
-  --primary: #9E0018;
-  --primary-hover: #7A0012;
-  --surface-accent: #FDF2F4;
-  --bg-app: #F1F3F5;
-  --text-main: #1A1A1A;
-  --text-muted: #4A5568;
+  --primary: #A71B2B;
+  --primary-hover: #881220;
+  --accent: #CD1719;
+  --text-main: #1D1D1B;
+  --text-muted: #6C757D;
+  --bg-app: #F6F6F6;
+  --bg-card: #FFFFFF;
+  --border-color: #E2E8F0;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
 }
 
 body {
   background-color: var(--bg-app);
   color: var(--text-main);
-  font-family: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  font-family: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  line-height: 1.5;
   margin: 0;
   padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Skip Link para Acessibilidade (eMAG / WCAG) */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 1rem;
+  background: #1D1D1B;
+  color: #FFFFFF;
+  padding: 0.5rem 1rem;
+  z-index: 9999;
+  border-radius: 0 0 4px 4px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: top 150ms ease-in-out;
+  border: 2px solid #CD1719;
+}
+
+.skip-link:focus {
+  top: 0;
+  outline: 3px solid #CD1719;
+}
+
+/* Modo Alto Contraste para conformidade de acessibilidade pública */
+.alto-contraste {
+  background-color: #000000 !important;
+  color: #FFFF00 !important;
+}
+
+.alto-contraste body,
+.alto-contraste main,
+.alto-contraste header,
+.alto-contraste footer,
+.alto-contraste nav,
+.alto-contraste section,
+.alto-contraste div,
+.alto-contraste table {
+  background-color: #000000 !important;
+  color: #FFFF00 !important;
+  border-color: #FFFF00 !important;
+}
+
+.alto-contraste a,
+.alto-contraste button,
+.alto-contraste input,
+.alto-contraste select {
+  background-color: #000000 !important;
+  color: #FFFF00 !important;
+  border: 1px solid #FFFF00 !important;
+}
+
+.alto-contraste a:hover,
+.alto-contraste button:hover {
+  background-color: #FFFF00 !important;
+  color: #000000 !important;
+}
+
+/* Foco visível acessível em todos os controles */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: 2px solid #A71B2B;
+  outline-offset: 2px;
 }
