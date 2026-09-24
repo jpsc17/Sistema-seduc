@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Download, Filter, RotateCcw, ChevronDown, ChevronUp, Loader2, Info } from "lucide-react";
+import { Search, Download, SlidersHorizontal, RotateCcw, Loader2 } from "lucide-react";
 import type { FiltrosData } from "@/lib/types";
 
 interface FilterBarProps {
@@ -39,7 +39,7 @@ export default function FilterBar({
   onClearFilters,
   totalFilteredRecords,
 }: FilterBarProps) {
-  const [mobileExpanded, setMobileExpanded] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Se uma DRE estiver selecionada, filtra os municípios pertencentes a ela
   const availableMunicipios =
@@ -60,9 +60,7 @@ export default function FilterBar({
     search.trim() || dre || municipio || rede || localizacao
   );
 
-  const activeFiltersCount = [
-    Boolean(search.trim()),
-    Boolean(dre),
+  const extraFiltersCount = [
     Boolean(municipio),
     Boolean(rede),
     Boolean(localizacao),
@@ -78,93 +76,106 @@ export default function FilterBar({
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-xs border border-[#E2E8F0] p-4 space-y-3">
-      {/* Linha Principal de Filtros */}
-      <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
-        {/* Campo de Busca por Nome ou Código INEP */}
-        <div className="relative flex-1 min-w-[240px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6C757D]" />
+    <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs p-3.5 space-y-3">
+      {/* Barra Principal de Filtros — Apenas 3 elementos em linha flex */}
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+        {/* 1. Campo de busca unificada (INEP ou Nome) com ícone de lupa */}
+        <div className="relative flex-1 min-w-[220px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="search"
             aria-label="Buscar por Código INEP ou Nome da Escola"
-            placeholder="Buscar por Código INEP ou Nome da Escola..."
+            placeholder="Buscar por INEP ou Nome da Escola..."
             value={search}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-[#F8F9FA] border border-[#E2E8F0] rounded-md text-sm text-[#1D1D1B] placeholder:text-[#6C757D] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#A71B2B]/20 focus:border-[#A71B2B] transition-colors"
+            className="w-full pl-9 pr-3 py-2 bg-slate-50/70 border border-slate-200 rounded-lg text-sm text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-slate-400 transition-colors"
           />
         </div>
 
-        {/* Botão de Toggle para Mobile (< 1024px) */}
-        <div className="flex lg:hidden items-center justify-between gap-2">
-          <button
-            type="button"
-            onClick={() => setMobileExpanded(!mobileExpanded)}
-            className="inline-flex items-center gap-2 px-3 py-2 bg-[#F6F6F6] border border-[#E2E8F0] rounded-md text-sm font-semibold text-[#1D1D1B] hover:bg-gray-100 transition-colors"
-            aria-expanded={mobileExpanded}
+        {/* 2. Seletor de DRE (Todas as DREs) */}
+        <div className="w-full md:w-56 shrink-0">
+          <select
+            id="select-dre"
+            aria-label="Selecionar Diretoria Regional de Ensino"
+            value={dre}
+            onChange={(e) => handleDreChange(e.target.value)}
+            className="w-full px-3 py-2 bg-slate-50/70 border border-slate-200 rounded-lg text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-slate-400 transition-colors cursor-pointer"
           >
-            <Filter className="w-4 h-4 text-[#A71B2B]" />
-            <span>Filtros Regionais</span>
-            {activeFiltersCount > 0 && (
-              <span className="w-5 h-5 rounded-full bg-[#A71B2B] text-white text-xs flex items-center justify-center font-bold">
-                {activeFiltersCount}
-              </span>
-            )}
-            {mobileExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </button>
-
-          {/* Exportar no mobile */}
-          <button
-            onClick={onExport}
-            disabled={exporting}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#A71B2B] text-white text-sm font-semibold rounded-md hover:bg-[#881220] disabled:opacity-60 disabled:cursor-not-allowed transition-colors cursor-pointer"
-            title="Exportar base completa para Excel"
-          >
-            {exporting ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Download className="w-4 h-4" />
-            )}
-            <span>{exporting ? "Gerando..." : "Exportar"}</span>
-          </button>
+            <option value="">Todas as DREs</option>
+            {filtros?.dres.map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+          </select>
         </div>
 
-        {/* Dropdowns Desktop (sempre visíveis em telas grandes) e Drawer/Acordeon em telas pequenas */}
-        <div
-          className={`${
-            mobileExpanded ? "flex" : "hidden"
-          } lg:flex flex-col lg:flex-row flex-wrap items-stretch lg:items-center gap-2.5 pt-2 lg:pt-0 border-t lg:border-t-0 border-gray-100`}
-        >
-          {/* DRE Dropdown com Tooltip */}
-          <div className="flex flex-col sm:flex-row lg:flex-row gap-1 lg:items-center">
-            <label htmlFor="select-dre" className="sr-only">
-              Diretoria Regional de Ensino (DRE)
-            </label>
-            <select
-              id="select-dre"
-              value={dre}
-              onChange={(e) => handleDreChange(e.target.value)}
-              title="Diretoria Regional de Ensino (DRE)"
-              className="px-2.5 py-2 border border-[#E2E8F0] rounded-md text-sm text-[#1D1D1B] bg-white focus:outline-none focus:ring-2 focus:ring-[#A71B2B]/20 focus:border-[#A71B2B] min-w-[140px]"
-            >
-              <option value="">Todas as DREs (Regionais)</option>
-              {filtros?.dres.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
-          </div>
+        {/* 3. Grupo de ações à direita */}
+        <div className="flex items-center gap-2 shrink-0 justify-end flex-wrap sm:flex-nowrap">
+          {/* Botão colapsável Filtros (+) */}
+          <button
+            type="button"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border transition-colors cursor-pointer ${
+              showAdvanced || extraFiltersCount > 0
+                ? "bg-slate-100 border-slate-300 text-slate-900"
+                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+            }`}
+            aria-expanded={showAdvanced}
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
+            <span>Filtros {showAdvanced ? "(-)" : "(+)"}</span>
+            {extraFiltersCount > 0 && (
+              <span className="w-4 h-4 rounded-full bg-slate-800 text-white text-[11px] font-semibold flex items-center justify-center">
+                {extraFiltersCount}
+              </span>
+            )}
+          </button>
 
-          {/* Município Dropdown */}
-          <div className="flex flex-col sm:flex-row lg:flex-row gap-1 lg:items-center">
-            <label htmlFor="select-municipio" className="sr-only">
+          {/* Botão Limpar Filtros (apenas visível se houver filtros ativos) */}
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={handleReset}
+              className="inline-flex items-center gap-1 px-2.5 py-2 text-sm font-medium text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+              title="Redefinir filtros"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Limpar</span>
+            </button>
+          )}
+
+          {/* Botão Exportar Excel — Botão secundário outline neutro */}
+          <button
+            type="button"
+            onClick={onExport}
+            disabled={exporting}
+            className="border border-slate-300 text-slate-700 hover:bg-slate-50 font-medium px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap cursor-pointer"
+            title="Exportar base de dados para planilha Excel"
+          >
+            {exporting ? (
+              <Loader2 className="w-4 h-4 animate-spin text-slate-500" />
+            ) : (
+              <Download className="w-4 h-4 text-slate-500" />
+            )}
+            <span>{exporting ? "Gerando..." : "Exportar Excel"}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Accordion / Drawer sutil de filtros adicionais (Município, Rede, Localização) */}
+      {showAdvanced && (
+        <div className="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3 animate-in fade-in duration-150">
+          {/* Município */}
+          <div>
+            <label htmlFor="select-municipio" className="block text-xs font-medium text-slate-500 mb-1">
               Município
             </label>
             <select
               id="select-municipio"
               value={municipio}
               onChange={(e) => onMunicipioChange(e.target.value)}
-              className="px-2.5 py-2 border border-[#E2E8F0] rounded-md text-sm text-[#1D1D1B] bg-white focus:outline-none focus:ring-2 focus:ring-[#A71B2B]/20 focus:border-[#A71B2B] min-w-[140px]"
+              className="w-full px-3 py-1.5 bg-slate-50/70 border border-slate-200 rounded-lg text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
             >
               <option value="">
                 {dre ? `Municípios de ${dre}` : "Todos os Municípios"}
@@ -177,16 +188,16 @@ export default function FilterBar({
             </select>
           </div>
 
-          {/* Rede Dropdown */}
-          <div className="flex flex-col sm:flex-row lg:flex-row gap-1 lg:items-center">
-            <label htmlFor="select-rede" className="sr-only">
+          {/* Rede */}
+          <div>
+            <label htmlFor="select-rede" className="block text-xs font-medium text-slate-500 mb-1">
               Rede de Ensino
             </label>
             <select
               id="select-rede"
               value={rede}
               onChange={(e) => onRedeChange(e.target.value)}
-              className="px-2.5 py-2 border border-[#E2E8F0] rounded-md text-sm text-[#1D1D1B] bg-white focus:outline-none focus:ring-2 focus:ring-[#A71B2B]/20 focus:border-[#A71B2B] min-w-[110px]"
+              className="w-full px-3 py-1.5 bg-slate-50/70 border border-slate-200 rounded-lg text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
             >
               <option value="">Todas as Redes</option>
               {filtros?.redes.map((r) => (
@@ -197,18 +208,18 @@ export default function FilterBar({
             </select>
           </div>
 
-          {/* Localização Dropdown */}
-          <div className="flex flex-col sm:flex-row lg:flex-row gap-1 lg:items-center">
-            <label htmlFor="select-localizacao" className="sr-only">
-              Localização (Urbana / Rural)
+          {/* Localização */}
+          <div>
+            <label htmlFor="select-localizacao" className="block text-xs font-medium text-slate-500 mb-1">
+              Localização
             </label>
             <select
               id="select-localizacao"
               value={localizacao}
               onChange={(e) => onLocalizacaoChange(e.target.value)}
-              className="px-2.5 py-2 border border-[#E2E8F0] rounded-md text-sm text-[#1D1D1B] bg-white focus:outline-none focus:ring-2 focus:ring-[#A71B2B]/20 focus:border-[#A71B2B] min-w-[120px]"
+              className="w-full px-3 py-1.5 bg-slate-50/70 border border-slate-200 rounded-lg text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-300"
             >
-              <option value="">Localização</option>
+              <option value="">Todas as Localizações</option>
               {filtros?.localizacoes.map((l) => (
                 <option key={l} value={l}>
                   {l}
@@ -216,52 +227,23 @@ export default function FilterBar({
               ))}
             </select>
           </div>
-
-          {/* Botão Limpar Filtros */}
-          {hasActiveFilters && (
-            <button
-              onClick={handleReset}
-              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-[#A71B2B] bg-[#FDF2F4] hover:bg-[#FAD2D8] border border-[#FAD2D8] rounded-md transition-colors cursor-pointer shrink-0"
-              title="Redefinir e limpar todos os filtros aplicados"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Limpar Filtros</span>
-            </button>
-          )}
-
-          {/* Botão Exportar Excel Desktop */}
-          <div className="hidden lg:block shrink-0 pl-1">
-            <button
-              onClick={onExport}
-              disabled={exporting}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#A71B2B] text-white text-sm font-semibold rounded-md hover:bg-[#881220] disabled:opacity-60 disabled:cursor-not-allowed transition-colors shadow-xs cursor-pointer whitespace-nowrap"
-              title="Baixar planilha consolidada em formato Excel (.xlsx)"
-            >
-              {exporting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Download className="w-4 h-4" />
-              )}
-              <span>{exporting ? "Gerando Excel..." : "Exportar Excel"}</span>
-            </button>
-          </div>
         </div>
-      </div>
+      )}
 
-      {/* Linha Informativa de Filtros e Resumo com Contraste Adequado */}
+      {/* Resumo sutil de filtros ativos */}
       {hasActiveFilters && (
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-gray-100 text-xs text-[#6C757D]">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold text-[#1D1D1B]">Filtros aplicados:</span>
-            {search && <span className="bg-gray-100 px-2 py-0.5 rounded text-[#1D1D1B]">Busca: &ldquo;{search}&rdquo;</span>}
-            {dre && <span className="bg-gray-100 px-2 py-0.5 rounded text-[#1D1D1B]">DRE: {dre}</span>}
-            {municipio && <span className="bg-gray-100 px-2 py-0.5 rounded text-[#1D1D1B]">Município: {municipio}</span>}
-            {rede && <span className="bg-gray-100 px-2 py-0.5 rounded text-[#1D1D1B]">Rede: {rede}</span>}
-            {localizacao && <span className="bg-gray-100 px-2 py-0.5 rounded text-[#1D1D1B]">{localizacao}</span>}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs text-slate-500">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="font-medium text-slate-600">Filtros:</span>
+            {search && <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-700">Busca: &ldquo;{search}&rdquo;</span>}
+            {dre && <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-700">DRE: {dre}</span>}
+            {municipio && <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-700">Município: {municipio}</span>}
+            {rede && <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-700">Rede: {rede}</span>}
+            {localizacao && <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-700">{localizacao}</span>}
           </div>
           {totalFilteredRecords !== undefined && (
-            <span className="font-medium text-[#1D1D1B]">
-              Total filtrado: <strong>{totalFilteredRecords.toLocaleString("pt-BR")}</strong>
+            <span className="text-slate-400">
+              {totalFilteredRecords.toLocaleString("pt-BR")} encontrados
             </span>
           )}
         </div>

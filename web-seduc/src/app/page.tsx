@@ -6,7 +6,7 @@ import TopBar from "@/components/TopBar";
 import HeaderGov from "@/components/HeaderGov";
 import NavBar from "@/components/NavBar";
 import Breadcrumb from "@/components/Breadcrumb";
-import HeroSection from "@/components/HeroSection";
+import HeaderBanner from "@/components/HeaderBanner";
 import KpiCards from "@/components/KpiCards";
 import FilterBar from "@/components/FilterBar";
 import TabPublicadas from "@/components/TabPublicadas";
@@ -16,7 +16,7 @@ import TabIdebDre from "@/components/TabIdebDre";
 import SchoolDrawer from "@/components/SchoolDrawer";
 import FooterGov from "@/components/FooterGov";
 import type { Escola, KpiData, FiltrosData } from "@/lib/types";
-import { ChevronLeft, ChevronRight, School, AlertCircle, BookOpen, BarChart3 } from "lucide-react";
+import { School, AlertCircle, BookOpen, BarChart3 } from "lucide-react";
 
 type TabType = "publicadas" | "nao_publicadas" | "eja_aee" | "ideb_dre";
 
@@ -41,11 +41,12 @@ export default function Home() {
   const [rede, setRede] = useState("");
   const [localizacao, setLocalizacao] = useState("");
 
-  // Table state
+  // Table & pagination state
   const [escolas, setEscolas] = useState<Escola[]>([]);
   const [ejaData, setEjaData] = useState<any[]>([]);
   const [tableLoading, setTableLoading] = useState(false);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(15);
   const [totalPages, setTotalPages] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
 
@@ -95,7 +96,7 @@ export default function Home() {
     try {
       const params = new URLSearchParams();
       params.set("page", page.toString());
-      params.set("limit", "15");
+      params.set("limit", pageSize.toString());
       if (search.trim()) params.set("search", search.trim());
       if (dre) params.set("dre", dre);
       if (municipio) params.set("municipio", municipio);
@@ -125,7 +126,7 @@ export default function Home() {
     } finally {
       setTableLoading(false);
     }
-  }, [activeTab, page, search, dre, municipio, rede, localizacao]);
+  }, [activeTab, page, pageSize, search, dre, municipio, rede, localizacao]);
 
   useEffect(() => {
     fetchData();
@@ -164,6 +165,11 @@ export default function Home() {
 
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
+    setPage(1);
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
     setPage(1);
   };
 
@@ -256,32 +262,41 @@ export default function Home() {
     }
   };
 
+  const paginationProps = {
+    page,
+    totalPages,
+    totalRecords,
+    pageSize,
+    onPageChange: setPage,
+    onPageSizeChange: handlePageSizeChange,
+  };
+
   return (
-    <div className="min-h-screen bg-[#F6F6F6] text-[#1D1D1B] flex flex-col">
-      {/* 1. Barra Superior Fina Governamental (Acessibilidade & eMAG) */}
+    <div className="min-h-screen bg-slate-50/50 text-slate-800 flex flex-col font-sans">
+      {/* 1. Barra Superior Governamental */}
       <TopBar />
 
       {/* 2. Header Oficial da Instituição */}
       <HeaderGov />
 
-      {/* 3. Menu Horizontal de Navegação */}
+      {/* 3. Barra de Navegação Unificada */}
       <NavBar activeTab={activeTab} onSelectTab={handleTabChange} />
 
-      {/* 4. Hero Section com Título Oficial e Metadados */}
-      <HeroSection />
+      {/* 4. Cabeçalho e Hero Section Despoluído */}
+      <HeaderBanner />
 
       {/* 5. Área de Conteúdo Principal */}
       <main
         id="conteudo-principal"
-        className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6"
+        className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6"
       >
         {/* Breadcrumb Indicador de Localização */}
         <Breadcrumb currentTabName={TAB_LABELS[activeTab]} />
 
-        {/* Cards de KPI com Borda Sutil e Indicadores Padronizados */}
+        {/* Cards de KPI Minimalistas */}
         <KpiCards data={kpiData} loading={kpiLoading} />
 
-        {/* Barra de Filtros com feedback, responsividade e exportação */}
+        {/* Barra de Filtros e Ações (Lei de Hick) */}
         <FilterBar
           filtros={filtros}
           search={search}
@@ -300,92 +315,114 @@ export default function Home() {
           totalFilteredRecords={totalRecords}
         />
 
-        {/* Abas de Navegação de Dados com Design System Oficial */}
-        <section aria-label="Tabelas de Resultados">
-          <div
-            role="tablist"
-            className="flex items-center overflow-x-auto border-b border-[#E2E8F0] gap-1 sm:gap-2 no-scrollbar"
-          >
-            <button
-              role="tab"
-              aria-selected={activeTab === "publicadas"}
-              onClick={() => handleTabChange("publicadas")}
-              className={`inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-[3px] transition-colors duration-150 cursor-pointer whitespace-nowrap rounded-t-md ${
-                activeTab === "publicadas"
-                  ? "border-[#A71B2B] text-[#A71B2B] bg-white shadow-2xs"
-                  : "border-transparent text-[#6C757D] hover:text-[#1D1D1B] hover:bg-white/60"
-              }`}
+        {/* Seletor de Abas — Padrão Segmented Control Neutro */}
+        <section aria-label="Tabelas de Resultados" className="space-y-4">
+          <div className="flex items-center overflow-x-auto no-scrollbar py-1">
+            <div
+              role="tablist"
+              aria-label="Seleção de Visualização"
+              className="inline-flex p-1 bg-slate-100 rounded-xl gap-1 max-w-full overflow-x-auto"
             >
-              <School className={`w-4 h-4 ${activeTab === "publicadas" ? "text-[#A71B2B]" : "text-[#6C757D]"}`} />
-              <span>Escolas Publicadas</span>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
-                activeTab === "publicadas" ? "bg-[#FDF2F4] text-[#A71B2B]" : "bg-gray-100 text-[#6C757D]"
-              }`}>
-                {kpiData?.escolas_publicadas ?? "..."}
-              </span>
-            </button>
+              <button
+                role="tab"
+                aria-selected={activeTab === "publicadas"}
+                onClick={() => handleTabChange("publicadas")}
+                className={`inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === "publicadas"
+                    ? "bg-white text-slate-900 shadow-xs font-semibold"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+                }`}
+              >
+                <School className="w-4 h-4 text-slate-400" />
+                <span>Escolas Publicadas</span>
+                {kpiData?.escolas_publicadas !== undefined && (
+                  <span
+                    className={`text-xs px-1.5 py-0.5 rounded-md font-medium ${
+                      activeTab === "publicadas"
+                        ? "bg-slate-100 text-slate-700"
+                        : "bg-slate-200/50 text-slate-500"
+                    }`}
+                  >
+                    {kpiData.escolas_publicadas.toLocaleString("pt-BR")}
+                  </span>
+                )}
+              </button>
 
-            <button
-              role="tab"
-              aria-selected={activeTab === "nao_publicadas"}
-              onClick={() => handleTabChange("nao_publicadas")}
-              className={`inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-[3px] transition-colors duration-150 cursor-pointer whitespace-nowrap rounded-t-md ${
-                activeTab === "nao_publicadas"
-                  ? "border-[#A71B2B] text-[#A71B2B] bg-white shadow-2xs"
-                  : "border-transparent text-[#6C757D] hover:text-[#1D1D1B] hover:bg-white/60"
-              }`}
-            >
-              <AlertCircle className={`w-4 h-4 ${activeTab === "nao_publicadas" ? "text-[#9E0018]" : "text-[#6C757D]"}`} />
-              <span>Pendência de Fluxo</span>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
-                activeTab === "nao_publicadas" ? "bg-red-50 text-[#9E0018]" : "bg-gray-100 text-[#6C757D]"
-              }`}>
-                {kpiData?.escolas_nao_publicadas ?? "..."}
-              </span>
-            </button>
+              <button
+                role="tab"
+                aria-selected={activeTab === "nao_publicadas"}
+                onClick={() => handleTabChange("nao_publicadas")}
+                className={`inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === "nao_publicadas"
+                    ? "bg-white text-slate-900 shadow-xs font-semibold"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+                }`}
+              >
+                <AlertCircle className="w-4 h-4 text-slate-400" />
+                <span>Não Publicadas</span>
+                {kpiData?.escolas_nao_publicadas !== undefined && (
+                  <span
+                    className={`text-xs px-1.5 py-0.5 rounded-md font-medium ${
+                      activeTab === "nao_publicadas"
+                        ? "bg-slate-100 text-slate-700"
+                        : "bg-slate-200/50 text-slate-500"
+                    }`}
+                  >
+                    {kpiData.escolas_nao_publicadas.toLocaleString("pt-BR")}
+                  </span>
+                )}
+              </button>
 
-            <button
-              role="tab"
-              aria-selected={activeTab === "eja_aee"}
-              onClick={() => handleTabChange("eja_aee")}
-              className={`inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-[3px] transition-colors duration-150 cursor-pointer whitespace-nowrap rounded-t-md ${
-                activeTab === "eja_aee"
-                  ? "border-[#A71B2B] text-[#A71B2B] bg-white shadow-2xs"
-                  : "border-transparent text-[#6C757D] hover:text-[#1D1D1B] hover:bg-white/60"
-              }`}
-            >
-              <BookOpen className={`w-4 h-4 ${activeTab === "eja_aee" ? "text-[#B45309]" : "text-[#6C757D]"}`} />
-              <span>Bônus EJA e AEE</span>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
-                activeTab === "eja_aee" ? "bg-amber-50 text-[#B45309]" : "bg-gray-100 text-[#6C757D]"
-              }`}>
-                {kpiData?.escolas_eja_aee ?? "..."}
-              </span>
-            </button>
+              <button
+                role="tab"
+                aria-selected={activeTab === "eja_aee"}
+                onClick={() => handleTabChange("eja_aee")}
+                className={`inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === "eja_aee"
+                    ? "bg-white text-slate-900 shadow-xs font-semibold"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+                }`}
+              >
+                <BookOpen className="w-4 h-4 text-slate-400" />
+                <span>Bônus EJA e AEE</span>
+                {kpiData?.escolas_eja_aee !== undefined && (
+                  <span
+                    className={`text-xs px-1.5 py-0.5 rounded-md font-medium ${
+                      activeTab === "eja_aee"
+                        ? "bg-slate-100 text-slate-700"
+                        : "bg-slate-200/50 text-slate-500"
+                    }`}
+                  >
+                    {kpiData.escolas_eja_aee.toLocaleString("pt-BR")}
+                  </span>
+                )}
+              </button>
 
-            <button
-              role="tab"
-              aria-selected={activeTab === "ideb_dre"}
-              onClick={() => handleTabChange("ideb_dre")}
-              className={`inline-flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-[3px] transition-colors duration-150 cursor-pointer whitespace-nowrap rounded-t-md ${
-                activeTab === "ideb_dre"
-                  ? "border-[#A71B2B] text-[#A71B2B] bg-white shadow-2xs"
-                  : "border-transparent text-[#6C757D] hover:text-[#1D1D1B] hover:bg-white/60"
-              }`}
-            >
-              <BarChart3 className={`w-4 h-4 ${activeTab === "ideb_dre" ? "text-[#A71B2B]" : "text-[#6C757D]"}`} />
-              <span>IDEB por DRE</span>
-            </button>
+              <button
+                role="tab"
+                aria-selected={activeTab === "ideb_dre"}
+                onClick={() => handleTabChange("ideb_dre")}
+                className={`inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === "ideb_dre"
+                    ? "bg-white text-slate-900 shadow-xs font-semibold"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+                }`}
+              >
+                <BarChart3 className="w-4 h-4 text-slate-400" />
+                <span>IDEB por DRE</span>
+              </button>
+            </div>
           </div>
 
-          {/* Conteúdo das Abas com transição suave */}
-          <div className="pt-4">
+          {/* Conteúdo das Abas com Paginação Integrada */}
+          <div>
             {activeTab === "publicadas" && (
               <TabPublicadas
                 data={escolas}
                 loading={tableLoading}
                 onSelectEscola={(cod) => setSelectedSchoolCode(cod)}
                 onClearFilters={handleClearFilters}
+                pagination={paginationProps}
               />
             )}
 
@@ -395,6 +432,7 @@ export default function Home() {
                 loading={tableLoading}
                 onSelectEscola={(cod) => setSelectedSchoolCode(cod)}
                 onClearFilters={handleClearFilters}
+                pagination={paginationProps}
               />
             )}
 
@@ -403,6 +441,7 @@ export default function Home() {
                 data={ejaData}
                 loading={tableLoading}
                 onClearFilters={handleClearFilters}
+                pagination={paginationProps}
               />
             )}
 
@@ -411,41 +450,6 @@ export default function Home() {
             )}
           </div>
         </section>
-
-        {/* Paginação Institucional Acessível */}
-        {totalPages > 1 && activeTab !== "ideb_dre" && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-lg border border-[#E2E8F0] shadow-xs">
-            <span className="text-xs sm:text-sm text-[#6C757D]">
-              Mostrando página <strong className="text-[#1D1D1B] font-bold">{page}</strong> de{" "}
-              <strong className="text-[#1D1D1B] font-bold">{totalPages}</strong> &bull;{" "}
-              <span className="text-[#1D1D1B] font-semibold">{totalRecords.toLocaleString("pt-BR")}</span> registros encontrados
-            </span>
-
-            <div className="flex items-center gap-2">
-              <button
-                disabled={page <= 1 || tableLoading}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="inline-flex items-center gap-1 px-3 py-1.5 border border-[#E2E8F0] rounded-md text-xs sm:text-sm font-semibold text-[#1D1D1B] hover:bg-[#FDF2F4] hover:text-[#A71B2B] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                aria-label="Página anterior"
-              >
-                <ChevronLeft className="w-4 h-4" /> Anterior
-              </button>
-
-              <span className="text-xs px-2 font-medium text-[#6C757D]">
-                {page} / {totalPages}
-              </span>
-
-              <button
-                disabled={page >= totalPages || tableLoading}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="inline-flex items-center gap-1 px-3 py-1.5 border border-[#E2E8F0] rounded-md text-xs sm:text-sm font-semibold text-[#1D1D1B] hover:bg-[#FDF2F4] hover:text-[#A71B2B] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                aria-label="Próxima página"
-              >
-                Próxima <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
       </main>
 
       {/* Ficha 360° da Escola no Drawer Lateral */}
@@ -456,7 +460,7 @@ export default function Home() {
         />
       )}
 
-      {/* 6. Rodapé Oficial Institucional */}
+      {/* 6. Rodapé Institucional */}
       <FooterGov />
     </div>
   );

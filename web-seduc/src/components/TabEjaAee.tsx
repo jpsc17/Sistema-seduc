@@ -1,7 +1,8 @@
 "use client";
 
 import { formatBonus } from "@/lib/utils";
-import { BookOpen, Info, AlertCircle } from "lucide-react";
+import { Info, AlertCircle } from "lucide-react";
+import TablePagination from "./TablePagination";
 
 interface EjaRow {
   regional: string | null;
@@ -21,15 +22,39 @@ interface TabEjaAeeProps {
   data: EjaRow[];
   loading: boolean;
   onClearFilters?: () => void;
+  pagination?: {
+    page: number;
+    totalPages: number;
+    totalRecords: number;
+    pageSize: number;
+    onPageChange: (p: number) => void;
+    onPageSizeChange: (s: number) => void;
+  };
 }
 
-export default function TabEjaAee({ data, loading, onClearFilters }: TabEjaAeeProps) {
+function renderValue(val: number | string | null | undefined) {
+  if (val === null || val === undefined || val === "") {
+    return <span className="text-slate-300 font-normal">—</span>;
+  }
+  const formatted = formatBonus(val);
+  if (formatted === "—") {
+    return <span className="text-slate-300 font-normal">—</span>;
+  }
+  return formatted;
+}
+
+export default function TabEjaAee({
+  data,
+  loading,
+  onClearFilters,
+  pagination,
+}: TabEjaAeeProps) {
   if (loading) {
     return (
-      <div className="bg-white rounded-lg border border-[#E2E8F0] p-8 shadow-xs">
+      <div className="bg-white rounded-xl border border-slate-200/80 p-8 shadow-xs">
         <div className="space-y-3">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-12 bg-gray-100 rounded animate-pulse" />
+            <div key={i} className="h-10 bg-slate-100 rounded-lg animate-pulse" />
           ))}
         </div>
       </div>
@@ -38,22 +63,22 @@ export default function TabEjaAee({ data, loading, onClearFilters }: TabEjaAeePr
 
   if (data.length === 0) {
     return (
-      <div className="bg-white rounded-lg border border-[#E2E8F0] p-12 text-center space-y-4 shadow-xs">
-        <div className="w-12 h-12 rounded-full bg-amber-50 text-[#B45309] flex items-center justify-center mx-auto">
+      <div className="bg-white rounded-xl border border-slate-200/80 p-12 text-center space-y-4 shadow-xs">
+        <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
           <AlertCircle className="w-6 h-6" />
         </div>
         <div>
-          <h3 className="text-base font-bold text-[#1D1D1B]">
+          <h3 className="text-base font-semibold text-slate-800">
             Nenhum registro de EJA/AEE encontrado com os filtros selecionados.
           </h3>
-          <p className="text-sm text-[#6C757D] mt-1 max-w-md mx-auto">
+          <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">
             Verifique se a regional ou município selecionado possui turmas cadastradas nestas modalidades.
           </p>
         </div>
         {onClearFilters && (
           <button
             onClick={onClearFilters}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#A71B2B] text-white text-sm font-semibold rounded-md hover:bg-[#881220] transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-medium rounded-lg transition-colors cursor-pointer"
           >
             Redefinir Filtros
           </button>
@@ -64,85 +89,82 @@ export default function TabEjaAee({ data, loading, onClearFilters }: TabEjaAeePr
 
   return (
     <div className="space-y-3">
-      {/* Banner Explicativo sobre EJA e AEE */}
-      <div className="bg-[#FFFBEB] border-l-4 border-[#B45309] p-4 rounded-r-md text-xs text-[#92400E] flex items-start gap-2.5">
-        <BookOpen className="w-4 h-4 shrink-0 mt-0.5 text-[#B45309]" />
+      {/* Nota Explicativa Discreta */}
+      <div className="bg-slate-50 border border-slate-200/80 p-3.5 rounded-xl text-xs text-slate-600 flex items-start gap-2.5">
+        <Info className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
         <div>
-          <strong className="font-semibold block text-[#78350F]">
-            Modalidades Especiais — EJA (Educação de Jovens e Adultos) &amp; AEE (Atendimento Educacional Especializado):
+          <strong className="font-medium text-slate-800 block">
+            Modalidades Especiais — EJA &amp; AEE:
           </strong>
           <span>
-            Os valores correspondem aos coeficientes apurados para turmas de EJA Fundamental (Anos Iniciais e Finais),
-            EJA Ensino Médio e Atendimento Especializado, nos termos da resolução estadual de bonificação.
+            Coeficientes apurados para turmas de EJA Fundamental (Iniciais e Finais), Ensino Médio e Atendimento
+            Educacional Especializado (AEE).
           </span>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border border-[#E2E8F0] overflow-hidden shadow-xs">
+      <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-xs">
         {/* Visão Desktop: Tabela */}
         <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-sm text-left">
+          <table className="w-full text-sm text-left border-collapse">
             <thead>
-              <tr className="bg-[#F8F9FA] border-b border-[#E2E8F0] text-[#1D1D1B] font-semibold text-xs uppercase tracking-wider">
-                <th className="px-4 py-3.5">Código INEP</th>
-                <th className="px-4 py-3.5">Nome da Escola</th>
-                <th className="px-4 py-3.5">Município / DRE</th>
-                <th className="px-4 py-3.5 text-center bg-amber-50/50 text-[#B45309]">
-                  <span className="inline-flex items-center gap-1" title="Educação de Jovens e Adultos - Ensino Fundamental Anos Iniciais">
-                    EJA Iniciais
-                    <Info className="w-3 h-3" />
-                  </span>
-                </th>
-                <th className="px-4 py-3.5 text-center bg-amber-50/50 text-[#B45309]">
-                  <span className="inline-flex items-center gap-1" title="Educação de Jovens e Adultos - Ensino Fundamental Anos Finais">
-                    EJA Finais
-                    <Info className="w-3 h-3" />
-                  </span>
-                </th>
-                <th className="px-4 py-3.5 text-center bg-amber-50/50 text-[#B45309]">
-                  <span className="inline-flex items-center gap-1" title="Educação de Jovens e Adultos - Ensino Médio">
-                    EJA Médio
-                    <Info className="w-3 h-3" />
-                  </span>
-                </th>
-                <th className="px-4 py-3.5 text-center bg-red-50/50 text-[#A71B2B]">
-                  <span className="inline-flex items-center gap-1" title="Atendimento Educacional Especializado (Educação Especial e Inclusiva)">
-                    AEE
-                    <Info className="w-3 h-3" />
-                  </span>
-                </th>
+              <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs font-semibold tracking-wider">
+                <th className="px-4 py-3 text-left">CÓDIGO INEP</th>
+                <th className="px-4 py-3 text-left">NOME DA ESCOLA</th>
+                <th className="px-4 py-3 text-left">MUNICÍPIO / DRE</th>
+                <th className="px-4 py-3 text-right">EJA INICIAIS</th>
+                <th className="px-4 py-3 text-right">EJA FINAIS</th>
+                <th className="px-4 py-3 text-right">EJA MÉDIO</th>
+                <th className="px-4 py-3 text-right">AEE</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-slate-100">
               {data.map((row, idx) => (
                 <tr
                   key={`${row.codigo_escola}-${idx}`}
-                  className="hover:bg-[#FDF2F4]/40 transition-colors duration-150"
+                  className="hover:bg-slate-50/60 transition-colors"
                 >
-                  <td className="px-4 py-3.5 font-mono text-xs text-[#6C757D] font-medium">
+                  {/* CÓDIGO INEP: text-left */}
+                  <td className="px-4 py-3 text-left font-mono text-xs text-slate-500 font-medium">
                     {row.codigo_escola}
                   </td>
+
+                  {/* NOME DA ESCOLA: text-left */}
                   <td
-                    className="px-4 py-3.5 font-semibold text-[#1D1D1B] max-w-[320px] truncate"
+                    className="px-4 py-3 text-left font-medium text-slate-900 max-w-[280px] truncate"
                     title={row.nome_escola}
                   >
                     {row.nome_escola}
                   </td>
-                  <td className="px-4 py-3.5 text-xs text-[#6C757D] whitespace-nowrap">
-                    <span className="text-[#1D1D1B] font-medium block">{row.municipio}</span>
-                    <span className="text-[11px] text-gray-500">{row.regional || "—"}</span>
+
+                  {/* MUNICÍPIO / DRE: text-left */}
+                  <td className="px-4 py-3 text-left text-xs whitespace-nowrap">
+                    <span className="text-slate-800 font-medium block">
+                      {row.municipio}
+                    </span>
+                    <span className="text-[11px] text-slate-400">
+                      {row.regional || "—"}
+                    </span>
                   </td>
-                  <td className="px-4 py-3.5 text-center font-bold text-[#B45309] bg-amber-50/20">
-                    {formatBonus(row.eja_fundamental_iniciais)}
+
+                  {/* EJA INICIAIS: text-right tabular-nums */}
+                  <td className="px-4 py-3 text-right tabular-nums text-slate-700">
+                    {renderValue(row.eja_fundamental_iniciais)}
                   </td>
-                  <td className="px-4 py-3.5 text-center font-bold text-[#B45309] bg-amber-50/20">
-                    {formatBonus(row.eja_fundamental_finais)}
+
+                  {/* EJA FINAIS: text-right tabular-nums */}
+                  <td className="px-4 py-3 text-right tabular-nums text-slate-700">
+                    {renderValue(row.eja_fundamental_finais)}
                   </td>
-                  <td className="px-4 py-3.5 text-center font-bold text-[#B45309] bg-amber-50/20">
-                    {formatBonus(row.eja_medio)}
+
+                  {/* EJA MÉDIO: text-right tabular-nums */}
+                  <td className="px-4 py-3 text-right tabular-nums text-slate-700">
+                    {renderValue(row.eja_medio)}
                   </td>
-                  <td className="px-4 py-3.5 text-center font-bold text-[#A71B2B] bg-red-50/20">
-                    {formatBonus(row.atendimento_especializado_aee)}
+
+                  {/* AEE: text-right tabular-nums */}
+                  <td className="px-4 py-3 text-right tabular-nums font-semibold text-slate-900">
+                    {renderValue(row.atendimento_especializado_aee)}
                   </td>
                 </tr>
               ))}
@@ -150,43 +172,56 @@ export default function TabEjaAee({ data, loading, onClearFilters }: TabEjaAeePr
           </table>
         </div>
 
-        {/* Visão Mobile: Lista de Cards Empilhados */}
-        <div className="block md:hidden divide-y divide-gray-200">
+        {/* Visão Mobile: Cards simplificados */}
+        <div className="block md:hidden divide-y divide-slate-100">
           {data.map((row, idx) => (
             <div key={`mob-eja-${row.codigo_escola}-${idx}`} className="p-4 space-y-2.5">
               <div>
-                <span className="font-mono text-xs font-semibold text-[#6C757D]">
-                  INEP: {row.codigo_escola}
+                <span className="font-mono text-xs text-slate-400 font-medium">
+                  INEP {row.codigo_escola}
                 </span>
-                <h4 className="text-sm font-bold text-[#1D1D1B] leading-tight mt-0.5">
+                <h4 className="text-sm font-semibold text-slate-900 leading-tight mt-0.5">
                   {row.nome_escola}
                 </h4>
-                <p className="text-xs text-[#6C757D]">
+                <p className="text-xs text-slate-500 mt-0.5">
                   {row.municipio} &bull; {row.regional || "—"}
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-xs bg-[#F8F9FA] p-2.5 rounded border border-gray-200">
-                <div className="bg-amber-50/60 p-1.5 rounded border border-amber-200/50">
-                  <span className="text-amber-800 block text-[10px] uppercase font-semibold">EJA Iniciais</span>
-                  <span className="font-bold text-[#B45309]">{formatBonus(row.eja_fundamental_iniciais)}</span>
+              <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase">EJA Iniciais</span>
+                  <span className="text-slate-700 font-medium tabular-nums">{renderValue(row.eja_fundamental_iniciais)}</span>
                 </div>
-                <div className="bg-amber-50/60 p-1.5 rounded border border-amber-200/50">
-                  <span className="text-amber-800 block text-[10px] uppercase font-semibold">EJA Finais</span>
-                  <span className="font-bold text-[#B45309]">{formatBonus(row.eja_fundamental_finais)}</span>
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase">EJA Finais</span>
+                  <span className="text-slate-700 font-medium tabular-nums">{renderValue(row.eja_fundamental_finais)}</span>
                 </div>
-                <div className="bg-amber-50/60 p-1.5 rounded border border-amber-200/50">
-                  <span className="text-amber-800 block text-[10px] uppercase font-semibold">EJA Médio</span>
-                  <span className="font-bold text-[#B45309]">{formatBonus(row.eja_medio)}</span>
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase">EJA Médio</span>
+                  <span className="text-slate-700 font-medium tabular-nums">{renderValue(row.eja_medio)}</span>
                 </div>
-                <div className="bg-red-50/60 p-1.5 rounded border border-red-200/50">
-                  <span className="text-red-800 block text-[10px] uppercase font-semibold">AEE Especial</span>
-                  <span className="font-bold text-[#A71B2B]">{formatBonus(row.atendimento_especializado_aee)}</span>
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase">AEE Especial</span>
+                  <span className="font-semibold text-slate-900 tabular-nums">{renderValue(row.atendimento_especializado_aee)}</span>
                 </div>
               </div>
             </div>
           ))}
         </div>
+
+        {/* Paginação Integrada no Rodapé da Tabela */}
+        {pagination && (
+          <TablePagination
+            page={pagination.page}
+            totalPages={pagination.totalPages}
+            totalRecords={pagination.totalRecords}
+            pageSize={pagination.pageSize}
+            onPageChange={pagination.onPageChange}
+            onPageSizeChange={pagination.onPageSizeChange}
+            loading={loading}
+          />
+        )}
       </div>
     </div>
   );
