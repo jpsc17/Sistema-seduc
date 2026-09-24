@@ -15,7 +15,7 @@ export default function HeaderBanner() {
               Resultados Educacionais e Índice de Bônus
             </h1>
             <p className="text-sm text-slate-500 mt-1">
-              Resultados Educacionais e Índice de Bônus — Exercício 2025
+              Consulta pública e acompanhamento das metas e bonificações — Exercício 2025 (SEDUC / SECTET)
             </p>
           </div>
 

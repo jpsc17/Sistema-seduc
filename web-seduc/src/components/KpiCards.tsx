@@ -24,7 +24,7 @@ const cards = [
   {
     key: "escolas_nao_publicadas" as const,
     label: "NÃO PUBLICADAS",
-    caption: "Pendentes de fluxo",
+    caption: "77 escolas distintas",
     icon: AlertOctagon,
   },
   {
