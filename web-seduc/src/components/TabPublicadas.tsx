@@ -1,7 +1,7 @@
 "use client";
 
 import type { Escola } from "@/lib/types";
-import { formatBonus } from "@/lib/utils";
+import { formatBonus, formatEtapaEnsino, calcularSalarios, normalizarBonus, LIMITE_BONUS } from "@/lib/utils";
 import { ChevronRight, AlertCircle } from "lucide-react";
 import TablePagination from "./TablePagination";
 
@@ -29,6 +29,78 @@ function renderValue(val: number | string | null | undefined) {
     return <span className="text-slate-300 font-normal">—</span>;
   }
   return formatted;
+}
+
+/** Renderiza célula de bônus financeiro com destaque percentual do teto (3,5) */
+function renderBonusCell(val: number | null | undefined, isDocente: boolean = false) {
+  if (val === null || val === undefined) {
+    return <span className="text-slate-300 font-normal">—</span>;
+  }
+  const num = Number(val);
+  if (isNaN(num) || num === 0) {
+    return <span className="text-slate-300 font-normal">—</span>;
+  }
+  const { valorLimitado, percentualAtingido } = normalizarBonus(num);
+  const formatted = valorLimitado.toLocaleString("pt-BR", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 2,
+  });
+
+  const isTeto = valorLimitado >= LIMITE_BONUS;
+
+  return (
+    <div className="flex flex-col items-end leading-tight">
+      <span className="font-semibold text-slate-900">{formatted}</span>
+      <span className="text-[10px] font-medium text-amber-700 dark:text-amber-400">
+        {isTeto && isDocente ? "16º Salário (100% do teto)" : `(${percentualAtingido}% do teto)`}
+      </span>
+    </div>
+  );
+}
+
+/** Badge pedagógico para etapa de ensino */
+export function EtapaBadge({ etapa }: { etapa: string }) {
+  if (!etapa || etapa === "—") {
+    return <span className="text-slate-300 font-normal">—</span>;
+  }
+
+  if (etapa.includes("ALFABETIZAÇÃO") || etapa.includes("1º e 2º")) {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-teal-50 text-teal-800 border border-teal-200/70 whitespace-nowrap">
+        {etapa}
+      </span>
+    );
+  }
+
+  if (etapa.includes("INICIAIS") || etapa.includes("3º ao 5º")) {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-800 border border-blue-200/70 whitespace-nowrap">
+        {etapa}
+      </span>
+    );
+  }
+
+  if (etapa.includes("FINAIS")) {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700 border border-slate-200/70 whitespace-nowrap">
+        {etapa}
+      </span>
+    );
+  }
+
+  if (etapa.includes("MÉDIO") || etapa.includes("MEDIO")) {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-200/70 whitespace-nowrap">
+        {etapa}
+      </span>
+    );
+  }
+
+  return (
+    <span className="text-xs text-slate-600 font-medium whitespace-nowrap">
+      {etapa}
+    </span>
+  );
 }
 
 export default function TabPublicadas({
@@ -87,11 +159,25 @@ export default function TabPublicadas({
               <th className="px-4 py-3 text-left">NOME DA ESCOLA</th>
               <th className="px-4 py-3 text-left">MUNICÍPIO / DRE</th>
               <th className="px-4 py-3 text-left">ETAPA</th>
-              <th className="px-4 py-3 text-center">META</th>
-              <th className="px-4 py-3 text-right">CRESCIMENTO</th>
+              <th className="px-4 py-3 text-center">
+                <div className="flex flex-col items-center">
+                  <span>META</span>
+                  <span className="text-[9px] font-medium text-emerald-600 dark:text-emerald-400 tracking-normal">14º Salário</span>
+                </div>
+              </th>
+              <th className="px-4 py-3 text-right">
+                <div className="flex flex-col items-end">
+                  <span>CRESCIMENTO</span>
+                  <span className="text-[9px] font-medium text-blue-600 dark:text-blue-400 tracking-normal">15º Salário</span>
+                </div>
+              </th>
               <th className="px-4 py-3 text-right">FLUXO</th>
-              <th className="px-4 py-3 text-right">BÔNUS DOCENTE</th>
-              <th className="px-4 py-3 text-right">BÔNUS ADMIN</th>
+              <th className="px-4 py-3 text-right bg-amber-50/50 dark:bg-amber-950/20 border-l border-slate-200 tabular-nums font-semibold">
+                BÔNUS DOCENTE
+              </th>
+              <th className="px-4 py-3 text-right bg-amber-50/50 dark:bg-amber-950/20 border-l border-slate-200 tabular-nums font-semibold">
+                BÔNUS ADMIN.
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -99,12 +185,9 @@ export default function TabPublicadas({
               const metaAtingida =
                 escola.atingiu_meta !== null && Number(escola.atingiu_meta) >= 1;
 
-              const etapaFormatada = escola.etapa_ensino
-                ? escola.etapa_ensino
-                    .replace("ENSINO ", "")
-                    .replace("FUNDAMENTAL ", "EF ")
-                    .replace("MEDIO", "MÉDIO")
-                : "—";
+              const etapaFormatada = formatEtapaEnsino(escola.etapa_ensino);
+
+              const salarios = calcularSalarios(escola);
 
               return (
                 <tr
@@ -143,33 +226,45 @@ export default function TabPublicadas({
                     </span>
                   </td>
 
-                  {/* ETAPA: text-left, texto puro em cinza escuro */}
+                  {/* ETAPA: text-left, badge de distinção pedagógica */}
                   <td className="px-4 py-3 text-left whitespace-nowrap">
-                    <span className="text-xs text-slate-600 font-medium">
-                      {etapaFormatada}
-                    </span>
+                    <EtapaBadge etapa={etapaFormatada} />
                   </td>
 
-                  {/* META: text-center, badge suave e silencioso */}
+                  {/* META: text-center, badge + 14º Salário */}
                   <td className="px-4 py-3 text-center whitespace-nowrap">
-                    {escola.atingiu_meta !== null ? (
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded ${
-                          metaAtingida
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200/50"
-                            : "bg-rose-50 text-rose-700 border border-rose-200/50"
-                        }`}
-                      >
-                        {metaAtingida ? "SIM" : "NÃO"}
-                      </span>
-                    ) : (
-                      <span className="text-slate-300 font-normal">—</span>
-                    )}
+                    <div className="flex flex-col items-center gap-0.5">
+                      {escola.atingiu_meta !== null ? (
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded ${
+                            metaAtingida
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200/50"
+                              : "bg-rose-50 text-rose-700 border border-rose-200/50"
+                          }`}
+                        >
+                          {metaAtingida ? "SIM" : "NÃO"}
+                        </span>
+                      ) : (
+                        <span className="text-slate-300 font-normal">—</span>
+                      )}
+                      {metaAtingida && (
+                        <span className="text-[9px] font-semibold text-emerald-700 dark:text-emerald-400">
+                          14º Salário
+                        </span>
+                      )}
+                    </div>
                   </td>
 
-                  {/* CRESCIMENTO: text-right tabular-nums */}
+                  {/* CRESCIMENTO: text-right tabular-nums + 15º Salário */}
                   <td className="px-4 py-3 text-right tabular-nums text-slate-700">
-                    {renderValue(escola.ponto_crescimento)}
+                    <div className="flex flex-col items-end gap-0.5">
+                      <span>{renderValue(escola.ponto_crescimento)}</span>
+                      {salarios.tem15 && (
+                        <span className="text-[9px] font-semibold text-blue-700 dark:text-blue-400">
+                          15º Salário
+                        </span>
+                      )}
+                    </div>
                   </td>
 
                   {/* FLUXO: text-right tabular-nums */}
@@ -177,14 +272,14 @@ export default function TabPublicadas({
                     {renderValue(escola.fluxo)}
                   </td>
 
-                  {/* BÔNUS DOCENTE: text-right tabular-nums */}
-                  <td className="px-4 py-3 text-right tabular-nums font-semibold text-slate-900">
-                    {renderValue(escola.bonus_professor)}
+                  {/* BÔNUS DOCENTE: text-right tabular-nums font-semibold — coluna destacada */}
+                  <td className="px-4 py-3 text-right tabular-nums font-semibold bg-amber-50/50 dark:bg-amber-950/20 border-l border-slate-200">
+                    {renderBonusCell(escola.bonus_professor, true)}
                   </td>
 
-                  {/* BÔNUS ADMIN: text-right tabular-nums */}
-                  <td className="px-4 py-3 text-right tabular-nums font-medium text-slate-600">
-                    {renderValue(escola.bonus_administrativo)}
+                  {/* BÔNUS ADMIN: text-right tabular-nums font-semibold — coluna destacada */}
+                  <td className="px-4 py-3 text-right tabular-nums font-semibold bg-amber-50/50 dark:bg-amber-950/20 border-l border-slate-200">
+                    {renderBonusCell(escola.bonus_administrativo, false)}
                   </td>
                 </tr>
               );
@@ -198,12 +293,8 @@ export default function TabPublicadas({
         {data.map((escola, idx) => {
           const metaAtingida =
             escola.atingiu_meta !== null && Number(escola.atingiu_meta) >= 1;
-          const etapaFormatada = escola.etapa_ensino
-            ? escola.etapa_ensino
-                .replace("ENSINO ", "")
-                .replace("FUNDAMENTAL ", "EF ")
-                .replace("MEDIO", "MÉDIO")
-            : "—";
+          const etapaFormatada = formatEtapaEnsino(escola.etapa_ensino);
+          const salarios = calcularSalarios(escola);
 
           return (
             <div
@@ -223,35 +314,52 @@ export default function TabPublicadas({
                     {escola.municipio} &bull; {escola.regional_dre || "—"}
                   </p>
                 </div>
-                {escola.atingiu_meta !== null && (
-                  <span
-                    className={`shrink-0 px-2 py-0.5 text-xs font-medium rounded ${
-                      metaAtingida
-                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200/50"
-                        : "bg-rose-50 text-rose-700 border border-rose-200/50"
-                    }`}
-                  >
-                    Meta: {metaAtingida ? "SIM" : "NÃO"}
-                  </span>
-                )}
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  {escola.atingiu_meta !== null && (
+                    <span
+                      className={`px-2 py-0.5 text-xs font-medium rounded ${
+                        metaAtingida
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200/50"
+                          : "bg-rose-50 text-rose-700 border border-rose-200/50"
+                      }`}
+                    >
+                      Meta: {metaAtingida ? "SIM" : "NÃO"}
+                    </span>
+                  )}
+                  {metaAtingida && (
+                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/50">
+                      14º Salário
+                    </span>
+                  )}
+                  {salarios.tem15 && (
+                    <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200/50">
+                      15º Salário
+                    </span>
+                  )}
+                  {salarios.tem16 && (
+                    <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/50">
+                      16º Salário (100%)
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-2.5 rounded-lg border border-slate-100">
                 <div>
-                  <span className="text-slate-400 block text-[10px] uppercase">Etapa</span>
-                  <span className="text-slate-700 font-medium">{etapaFormatada}</span>
+                  <span className="text-slate-400 block text-[10px] uppercase mb-0.5">Etapa</span>
+                  <EtapaBadge etapa={etapaFormatada} />
                 </div>
                 <div>
                   <span className="text-slate-400 block text-[10px] uppercase">Fluxo</span>
                   <span className="text-slate-700 font-medium tabular-nums">{renderValue(escola.fluxo)}</span>
                 </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px] uppercase">Bônus Docente</span>
-                  <span className="font-semibold text-slate-900 tabular-nums">{renderValue(escola.bonus_professor)}</span>
+                <div className="bg-amber-50/60 dark:bg-amber-950/20 rounded p-1.5 -m-0.5 border border-amber-200/40">
+                  <span className="text-amber-800 dark:text-amber-300 block text-[10px] uppercase font-semibold">Bônus Docente</span>
+                  <span className="tabular-nums font-semibold text-slate-900">{renderBonusCell(escola.bonus_professor, true)}</span>
                 </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px] uppercase">Bônus Admin</span>
-                  <span className="font-medium text-slate-700 tabular-nums">{renderValue(escola.bonus_administrativo)}</span>
+                <div className="bg-amber-50/60 dark:bg-amber-950/20 rounded p-1.5 -m-0.5 border border-amber-200/40">
+                  <span className="text-amber-800 dark:text-amber-300 block text-[10px] uppercase font-semibold">Bônus Admin.</span>
+                  <span className="tabular-nums font-semibold text-slate-900">{renderBonusCell(escola.bonus_administrativo, false)}</span>
                 </div>
               </div>
 

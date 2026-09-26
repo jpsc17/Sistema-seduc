@@ -92,6 +92,52 @@ def main():
             -- VIEW CONSOLIDADA: vw_escola_resultado_completo
             -- =================================================================
             CREATE OR REPLACE VIEW vw_escola_resultado_completo AS
+            WITH pub_p_expanded AS (
+                SELECT 
+                    codigo_escola,
+                    municipio,
+                    regiao_integracao,
+                    nome_escola,
+                    etapa_ensino::varchar(255) AS etapa_ensino,
+                    meta_pactuada,
+                    ponto_crescimento,
+                    ponto_fluxo,
+                    indice_bonus as bonus_professor
+                FROM seduc_publ_regular_prof
+                WHERE etapa_ensino != 'ENSINO FUNDAMENTAL ANOS INICIAIS'
+                
+                UNION ALL
+                
+                SELECT 
+                    codigo_escola,
+                    municipio,
+                    regiao_integracao,
+                    nome_escola,
+                    'EF ALFABETIZAÇÃO (1º e 2º)'::varchar(255) as etapa_ensino,
+                    meta_pactuada,
+                    ponto_crescimento,
+                    ponto_fluxo,
+                    bonus_prof_1_e_2_ano as bonus_professor
+                FROM seduc_publ_regular_prof
+                WHERE etapa_ensino = 'ENSINO FUNDAMENTAL ANOS INICIAIS'
+                  AND (bonus_prof_1_e_2_ano > 0 OR ponto_alfabetizacao > 0)
+                  
+                UNION ALL
+                
+                SELECT 
+                    codigo_escola,
+                    municipio,
+                    regiao_integracao,
+                    nome_escola,
+                    'EF ANOS INICIAIS (3º ao 5º)'::varchar(255) as etapa_ensino,
+                    meta_pactuada,
+                    ponto_crescimento,
+                    ponto_fluxo,
+                    bonus_prof_3_a_5_ano as bonus_professor
+                FROM seduc_publ_regular_prof
+                WHERE etapa_ensino = 'ENSINO FUNDAMENTAL ANOS INICIAIS'
+                  AND (bonus_prof_3_a_5_ano > 0 OR (COALESCE(bonus_prof_1_e_2_ano, 0) = 0 AND COALESCE(ponto_alfabetizacao, 0) = 0))
+            )
             SELECT
                 e.codigo_escola,
                 e.nome_escola,
@@ -115,7 +161,7 @@ def main():
 
                 -- Bônus Professor (melhor valor disponível)
                 COALESCE(
-                    pub_p.indice_bonus,
+                    pub_p.bonus_professor,
                     pub_s.bonus_prof_vinculado_turma,
                     np_p.ponto_bonus_professor,
                     np_s.indice_bonus_gestao
@@ -141,10 +187,16 @@ def main():
                 COALESCE(pub_p.ponto_fluxo, pub_s.fluxo)                  AS fluxo,
 
                 -- Etapa de ensino
-                COALESCE(pub_p.etapa_ensino, np_p.etapa_ensino) AS etapa_ensino
+                COALESCE(
+                    pub_p.etapa_ensino,
+                    CASE 
+                        WHEN np_p.etapa_ensino = 'ENSINO FUNDAMENTAL ANOS INICIAIS' THEN 'EF ANOS INICIAIS (3º ao 5º)'
+                        ELSE np_p.etapa_ensino 
+                    END
+                )::varchar(255) AS etapa_ensino
 
             FROM dim_escolas e
-            LEFT JOIN seduc_publ_regular_prof  pub_p ON e.codigo_escola = pub_p.codigo_escola
+            LEFT JOIN pub_p_expanded           pub_p ON e.codigo_escola = pub_p.codigo_escola
             LEFT JOIN seduc_publ_regular_admin pub_a ON e.codigo_escola = pub_a.codigo_escola
             LEFT JOIN seduc_publ_sectet        pub_s ON e.codigo_escola = pub_s.codigo_escola
             LEFT JOIN seduc_nao_publ_regular_prof  np_p ON e.codigo_escola = np_p.codigo_escola

@@ -1,9 +1,10 @@
 "use client";
 
 import type { Escola } from "@/lib/types";
-import { formatBonus } from "@/lib/utils";
+import { formatBonus, formatEtapaEnsino, normalizarBonus, LIMITE_BONUS } from "@/lib/utils";
 import { ChevronRight, AlertCircle, Info } from "lucide-react";
 import TablePagination from "./TablePagination";
+import { EtapaBadge } from "./TabPublicadas";
 
 interface TabNaoPublicadasProps {
   data: Escola[];
@@ -31,12 +32,29 @@ function renderValue(val: number | string | null | undefined) {
   return formatted;
 }
 
-function formatEtapa(raw: string | null | undefined): string {
-  if (!raw) return "—";
-  return raw
-    .replace(/^ENSINO\s+/i, "")
-    .replace(/^FUNDAMENTAL\s+/i, "EF ")
-    .replace(/MEDIO/i, "MÉDIO");
+/** Renderiza valor de bônus financeiro com teto e percentual */
+function renderBonusCell(val: number | null | undefined) {
+  if (val === null || val === undefined) {
+    return <span className="text-slate-300 font-normal">—</span>;
+  }
+  const num = Number(val);
+  if (isNaN(num) || num === 0) {
+    return <span className="text-slate-300 font-normal">—</span>;
+  }
+  const { valorLimitado, percentualAtingido } = normalizarBonus(num);
+  const formatted = valorLimitado.toLocaleString("pt-BR", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 2,
+  });
+
+  return (
+    <div className="flex flex-col items-end leading-tight">
+      <span className="font-semibold text-slate-900">{formatted}</span>
+      <span className="text-[10px] font-medium text-amber-700 dark:text-amber-400">
+        ({percentualAtingido}% do teto)
+      </span>
+    </div>
+  );
 }
 
 export default function TabNaoPublicadas({
@@ -111,13 +129,17 @@ export default function TabNaoPublicadas({
                 <th className="px-4 py-3 text-left">LOCALIZAÇÃO</th>
                 <th className="px-4 py-3 text-left">REDE</th>
                 <th className="px-4 py-3 text-right">FLUXO</th>
-                <th className="px-4 py-3 text-right">BÔNUS DOCENTE</th>
-                <th className="px-4 py-3 text-right">BÔNUS ADMIN</th>
+                <th className="px-4 py-3 text-right bg-amber-50/50 dark:bg-amber-950/20 border-l border-slate-200 tabular-nums font-semibold">
+                  BÔNUS DOCENTE
+                </th>
+                <th className="px-4 py-3 text-right bg-amber-50/50 dark:bg-amber-950/20 border-l border-slate-200 tabular-nums font-semibold">
+                  BÔNUS ADMIN.
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {data.map((escola, idx) => {
-                const etapaFormatada = formatEtapa(escola.etapa_ensino);
+                const etapaFormatada = formatEtapaEnsino(escola.etapa_ensino);
 
                 return (
                   <tr
@@ -155,11 +177,9 @@ export default function TabNaoPublicadas({
                       </span>
                     </td>
 
-                    {/* ETAPA: text-left, texto puro em cinza escuro */}
+                    {/* ETAPA: text-left com badge pedagógico */}
                     <td className="px-4 py-3 text-left whitespace-nowrap">
-                      <span className="text-xs text-slate-600 font-medium">
-                        {etapaFormatada}
-                      </span>
+                      <EtapaBadge etapa={etapaFormatada} />
                     </td>
 
                     {/* LOCALIZAÇÃO: text-left */}
@@ -177,14 +197,14 @@ export default function TabNaoPublicadas({
                       {renderValue(escola.fluxo)}
                     </td>
 
-                    {/* BÔNUS DOCENTE: text-right tabular-nums */}
-                    <td className="px-4 py-3 text-right tabular-nums font-semibold text-slate-900">
-                      {renderValue(escola.bonus_professor)}
+                    {/* BÔNUS DOCENTE: text-right tabular-nums font-semibold — coluna destacada */}
+                    <td className="px-4 py-3 text-right tabular-nums font-semibold bg-amber-50/50 dark:bg-amber-950/20 border-l border-slate-200">
+                      {renderBonusCell(escola.bonus_professor)}
                     </td>
 
-                    {/* BÔNUS ADMIN: text-right tabular-nums */}
-                    <td className="px-4 py-3 text-right tabular-nums font-medium text-slate-600">
-                      {renderValue(escola.bonus_administrativo)}
+                    {/* BÔNUS ADMIN: text-right tabular-nums font-semibold — coluna destacada */}
+                    <td className="px-4 py-3 text-right tabular-nums font-semibold bg-amber-50/50 dark:bg-amber-950/20 border-l border-slate-200">
+                      {renderBonusCell(escola.bonus_administrativo)}
                     </td>
                   </tr>
                 );
@@ -196,7 +216,7 @@ export default function TabNaoPublicadas({
         {/* Visão Mobile: Cards simplificados */}
         <div className="block md:hidden divide-y divide-slate-100">
           {data.map((escola, idx) => {
-            const etapaFormatada = formatEtapa(escola.etapa_ensino);
+            const etapaFormatada = formatEtapaEnsino(escola.etapa_ensino);
 
             return (
               <div
@@ -223,20 +243,20 @@ export default function TabNaoPublicadas({
 
                 <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-2.5 rounded-lg border border-slate-100">
                   <div>
-                    <span className="text-slate-400 block text-[10px] uppercase">Etapa</span>
-                    <span className="text-slate-700 font-medium">{etapaFormatada}</span>
+                    <span className="text-slate-400 block text-[10px] uppercase mb-0.5">Etapa</span>
+                    <EtapaBadge etapa={etapaFormatada} />
                   </div>
                   <div>
                     <span className="text-slate-400 block text-[10px] uppercase">Fluxo</span>
                     <span className="text-slate-700 font-medium tabular-nums">{renderValue(escola.fluxo)}</span>
                   </div>
-                  <div>
-                    <span className="text-slate-400 block text-[10px] uppercase">Bônus Docente</span>
-                    <span className="font-semibold text-slate-900 tabular-nums">{renderValue(escola.bonus_professor)}</span>
+                  <div className="bg-amber-50/60 dark:bg-amber-950/20 rounded p-1.5 -m-0.5 border border-amber-200/40">
+                    <span className="text-amber-800 dark:text-amber-300 block text-[10px] uppercase font-semibold">Bônus Docente</span>
+                    <span className="tabular-nums font-semibold text-slate-900">{renderBonusCell(escola.bonus_professor)}</span>
                   </div>
-                  <div>
-                    <span className="text-slate-400 block text-[10px] uppercase">Bônus Admin</span>
-                    <span className="font-medium text-slate-700 tabular-nums">{renderValue(escola.bonus_administrativo)}</span>
+                  <div className="bg-amber-50/60 dark:bg-amber-950/20 rounded p-1.5 -m-0.5 border border-amber-200/40">
+                    <span className="text-amber-800 dark:text-amber-300 block text-[10px] uppercase font-semibold">Bônus Admin.</span>
+                    <span className="tabular-nums font-semibold text-slate-900">{renderBonusCell(escola.bonus_administrativo)}</span>
                   </div>
                 </div>
 
