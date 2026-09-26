@@ -51,8 +51,8 @@ export default function Home() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
 
-  // Drawer
-  const [selectedSchoolCode, setSelectedSchoolCode] = useState<string | null>(null);
+  // Drawer — armazena código E etapa da linha clicada para contexto correto
+  const [selectedSchool, setSelectedSchool] = useState<{ codigo: string; etapa: string | null } | null>(null);
   const [exporting, setExporting] = useState(false);
 
   // Fetch KPIs
@@ -435,7 +435,7 @@ export default function Home() {
               <TabPublicadas
                 data={escolas}
                 loading={tableLoading}
-                onSelectEscola={(cod) => setSelectedSchoolCode(cod)}
+                onSelectEscola={(cod, etapa) => setSelectedSchool({ codigo: cod, etapa: etapa ?? null })}
                 onClearFilters={handleClearFilters}
                 pagination={paginationProps}
               />
@@ -445,7 +445,7 @@ export default function Home() {
               <TabNaoPublicadas
                 data={escolas}
                 loading={tableLoading}
-                onSelectEscola={(cod) => setSelectedSchoolCode(cod)}
+                onSelectEscola={(cod, etapa) => setSelectedSchool({ codigo: cod, etapa: etapa ?? null })}
                 onClearFilters={handleClearFilters}
                 pagination={paginationProps}
               />
@@ -468,10 +468,11 @@ export default function Home() {
       </main>
 
       {/* Ficha 360° da Escola no Drawer Lateral */}
-      {selectedSchoolCode && (
+      {selectedSchool && (
         <SchoolDrawer
-          codigoEscola={selectedSchoolCode}
-          onClose={() => setSelectedSchoolCode(null)}
+          codigoEscola={selectedSchool.codigo}
+          etapa={selectedSchool.etapa}
+          onClose={() => setSelectedSchool(null)}
         />
       )}
 

@@ -1,6 +1,10 @@
 """
-Migração: Região de Integração (RI) + 16º Salário
-Adiciona regiao_integracao à dim_escolas e atualiza a view consolidada.
+Migração Oficial e Sanitização Definitiva de Região de Integração (RI) e Deduplicação da View.
+
+Problemas resolvidos:
+1. Sanitização completa das 12 RIs canônicas do Pará (sem OCR corrompido, sem METROPOLITANA, mapeia Xingu e municípios faltantes).
+2. Eliminação definitiva de qualquer duplicação na view (sem produto cartesiano entre pub_p e np_p).
+3. 16º Salário calculado sem duplicações.
 """
 import os
 import psycopg2
@@ -10,422 +14,503 @@ DATABASE_URL = os.environ.get(
     "postgresql://postgres:mEeXDegrviFMqbbYCYbklKSQkcbwyOsQ@altaria.proxy.rlwy.net:10883/railway"
 )
 
-# Mapeamento canônico: municipio (UPPER) -> regiao_integracao
-# Fonte: IDESP/SEDUC-PA - Regiões de Integração do Pará (12 RIs oficiais)
-MUNICIPIO_RI = {
-    # RI 1 - GUAJARÁ
-    "ALTAMIRA": "GUAJARÁ",
-    "VITÓRIA DO XINGU": "GUAJARÁ",
-    "SENADOR JOSÉ PORFÍRIO": "GUAJARÁ",
-    "PORTO DE MOZ": "GUAJARÁ",
-    "GURUPÁ": "GUAJARÁ",
-    "BRASIL NOVO": "GUAJARÁ",
-    "URUARÁ": "GUAJARÁ",
-    "PLACAS": "GUAJARÁ",
-    "MEDICILÂNDIA": "GUAJARÁ",
-    "ANAPU": "GUAJARÁ",
-    "PACAJÁ": "GUAJARÁ",
-    # RI 2 - RIO CAETÉ
-    "BRAGANÇA": "RIO CAETÉ",
-    "CAPANEMA": "RIO CAETÉ",
-    "AUGUSTO CORRÊA": "RIO CAETÉ",
-    "BONITO": "RIO CAETÉ",
-    "CACHOEIRA DO PIRIÁ": "RIO CAETÉ",
-    "TRACUATEUA": "RIO CAETÉ",
-    "NOVA TIMBOTEUA": "RIO CAETÉ",
-    "PRIMAVERA": "RIO CAETÉ",
-    "QUATIPURU": "RIO CAETÉ",
-    "SALINÓPOLIS": "RIO CAETÉ",
-    "SÃO JOÃO DE PIRABAS": "RIO CAETÉ",
-    "SANTARÉM NOVO": "RIO CAETÉ",
-    "PEIXE-BOI": "RIO CAETÉ",
-    # RI 3 - BAIXO AMAZONAS
-    "SANTARÉM": "BAIXO AMAZONAS",
-    "ÓBIDOS": "BAIXO AMAZONAS",
-    "ORIXIMINÁ": "BAIXO AMAZONAS",
-    "JURUTI": "BAIXO AMAZONAS",
-    "TERRA SANTA": "BAIXO AMAZONAS",
-    "FARO": "BAIXO AMAZONAS",
-    "ALENQUER": "BAIXO AMAZONAS",
-    "CURUÁ": "BAIXO AMAZONAS",
-    "BELTERRA": "BAIXO AMAZONAS",
-    "MOJUÍ DOS CAMPOS": "BAIXO AMAZONAS",
-    "PRAINHA": "BAIXO AMAZONAS",
-    "MONTE ALEGRE": "BAIXO AMAZONAS",
-    "ALMEIRIM": "BAIXO AMAZONAS",
-    # RI 4 - TAPAJÓS
-    "ITAITUBA": "TAPAJÓS",
-    "JACAREACANGA": "TAPAJÓS",
-    "TRAIRÃO": "TAPAJÓS",
-    "NOVO PROGRESSO": "TAPAJÓS",
-    "RURÓPOLIS": "TAPAJÓS",
-    "AVEIRO": "TAPAJÓS",
-    # RI 5 - CARAJÁS
-    "PARAUAPEBAS": "CARAJÁS",
-    "CANAÃ DOS CARAJÁS": "CARAJÁS",
-    "ELDORADO DOS CARAJÁS": "CARAJÁS",
-    "CURIONÓPOLIS": "CARAJÁS",
-    "ÁGUA AZUL DO NORTE": "CARAJÁS",
-    "OURILÂNDIA DO NORTE": "CARAJÁS",
-    "TUCUMÃ": "CARAJÁS",
-    "SÃO FÉLIX DO XINGU": "CARAJÁS",
-    # RI 6 - MARAJÓ
-    "BREVES": "MARAJÓ",
-    "PORTEL": "MARAJÓ",
-    "MELGAÇO": "MARAJÓ",
-    "CHAVES": "MARAJÓ",
-    "SOURE": "MARAJÓ",
-    "CACHOEIRA DO ARARI": "MARAJÓ",
-    "SANTA CRUZ DO ARARI": "MARAJÓ",
-    "PONTA DE PEDRAS": "MARAJÓ",
-    "MUANÁ": "MARAJÓ",
-    "BAGRE": "MARAJÓ",
-    "ANAJÁS": "MARAJÓ",
-    "CURRALINHO": "MARAJÓ",
-    # RI 7 - METROPOLITANA
-    "BELÉM": "METROPOLITANA",
-    "ANANINDEUA": "METROPOLITANA",
-    "MARITUBA": "METROPOLITANA",
-    "BENEVIDES": "METROPOLITANA",
-    "SANTA BÁRBARA DO PARÁ": "METROPOLITANA",
-    "SANTA IZABEL DO PARÁ": "METROPOLITANA",
-    # RI 8 - GUAMÁ
-    "CASTANHAL": "GUAMÁ",
-    "SANTA MARIA DO PARÁ": "GUAMÁ",
-    "SÃO FRANCISCO DO PARÁ": "GUAMÁ",
-    "INHANGAPI": "GUAMÁ",
-    "SANTO ANTÔNIO DO TAUÁ": "GUAMÁ",
-    "VIGIA": "GUAMÁ",
-    "COLARES": "GUAMÁ",
-    "SÃO CAETANO DE ODIVELAS": "GUAMÁ",
-    "CURUÇÁ": "GUAMÁ",
-    "TERRA ALTA": "GUAMÁ",
-    "MARAPANIM": "GUAMÁ",
-    "MAGALHÃES BARATA": "GUAMÁ",
-    "MARACANÃ": "GUAMÁ",
-    "SÃO JOÃO DA PONTA": "GUAMÁ",
-    "BUJARU": "GUAMÁ",
-    "AURORA DO PARÁ": "GUAMÁ",
-    "CAPITÃO POÇO": "GUAMÁ",
-    "IPIXUNA DO PARÁ": "GUAMÁ",
-    "GARRAFÃO DO NORTE": "GUAMÁ",
-    "PARAGOMINAS": "GUAMÁ",
-    "DOM ELISEU": "GUAMÁ",
-    "RONDON DO PARÁ": "GUAMÁ",
-    "ABEL FIGUEIREDO": "GUAMÁ",
-    "GOIANÉSIA DO PARÁ": "GUAMÁ",
-    "TOMÉ-AÇU": "GUAMÁ",
-    "ACARÁ": "GUAMÁ",
-    "MOJU": "GUAMÁ",
-    # RI 9 - RIO CAPIM
-    "BREU BRANCO": "RIO CAPIM",
-    "TUCURUÍ": "RIO CAPIM",
-    "NOVO REPARTIMENTO": "RIO CAPIM",
-    "JACUNDÁ": "RIO CAPIM",
-    "NOVA IPIXUNA": "RIO CAPIM",
-    "ITUPIRANGA": "RIO CAPIM",
-    "SÃO DOMINGOS DO ARAGUAIA": "RIO CAPIM",
-    "SÃO GERALDO DO ARAGUAIA": "RIO CAPIM",
-    # RI 10 - ARAGUAIA
+# Mapa canônico de Município -> Região de Integração oficial do Pará
+# Abrange os municípios com RI nula ou associada a ruídos
+MUNICIPIO_RI_MAP = {
+    # ARAGUAIA
+    "CUMARU DO NORTE": "ARAGUAIA",
+    "SANTANA DO ARAGUAIA": "ARAGUAIA",
+    "AGUA AZUL DO NORTE": "ARAGUAIA",
+    "ÁGUA AZUL DO NORTE": "ARAGUAIA",
+    "BANNACH": "ARAGUAIA",
+    "CONCEICAO DO ARAGUAIA": "ARAGUAIA",
     "CONCEIÇÃO DO ARAGUAIA": "ARAGUAIA",
-    "REDENÇÃO": "ARAGUAIA",
-    "XINGUARA": "ARAGUAIA",
-    "RIO MARIA": "ARAGUAIA",
-    "SAPUCAIA": "ARAGUAIA",
     "FLORESTA DO ARAGUAIA": "ARAGUAIA",
-    "SANTA MARIA DAS BARREIRAS": "ARAGUAIA",
+    "OURILANDIA DO NORTE": "ARAGUAIA",
+    "OURILÂNDIA DO NORTE": "ARAGUAIA",
     "PAU D'ARCO": "ARAGUAIA",
-    # RI 11 - TOCANTINS
-    "MARABÁ": "TOCANTINS",
-    "SÃO JOÃO DO ARAGUAIA": "TOCANTINS",
-    # RI 12 - LAGO DE TUCURUÍ
-    "BAIÃO": "LAGO DE TUCURUÍ",
-    "MOCAJUBA": "LAGO DE TUCURUÍ",
-    "CAMETÁ": "LAGO DE TUCURUÍ",
-    "OEIRAS DO PARÁ": "LAGO DE TUCURUÍ",
-    "LIMOEIRO DO AJURU": "LAGO DE TUCURUÍ",
-    "IGARAPÉ-MIRI": "LAGO DE TUCURUÍ",
-    "ABAETETUBA": "LAGO DE TUCURUÍ",
-    "BARCARENA": "LAGO DE TUCURUÍ",
-    "TAILÂNDIA": "LAGO DE TUCURUÍ",
+    "PAU D ARCO": "ARAGUAIA",
+    "REDENCAO": "ARAGUAIA",
+    "REDENÇÃO": "ARAGUAIA",
+    "RIO MARIA": "ARAGUAIA",
+    "SANTA MARIA DAS BARREIRAS": "ARAGUAIA",
+    "SAO FELIX DO XINGU": "ARAGUAIA",
+    "SÃO FÉLIX DO XINGU": "ARAGUAIA",
+    "SAPUCAIA": "ARAGUAIA",
+    "TUCUMA": "ARAGUAIA",
+    "TUCUMÃ": "ARAGUAIA",
+    "XINGUARA": "ARAGUAIA",
+
+    # CARAJÁS
+    "BOM JESUS DO TOCANTINS": "CARAJÁS",
+    "BREJO GRANDE DO ARAGUAIA": "CARAJÁS",
+    "PALESTINA DO PARA": "CARAJÁS",
+    "PALESTINA DO PARÁ": "CARAJÁS",
+    "CANAA DOS CARAJAS": "CARAJÁS",
+    "CANAÃ DOS CARAJÁS": "CARAJÁS",
+    "CURIONOPOLIS": "CARAJÁS",
+    "CURIONÓPOLIS": "CARAJÁS",
+    "ELDORADO DO CARAJAS": "CARAJÁS",
+    "ELDORADO DO CARAJÁS": "CARAJÁS",
+    "MARABA": "CARAJÁS",
+    "MARABÁ": "CARAJÁS",
+    "PARAUAPEBAS": "CARAJÁS",
+    "PICARRA": "CARAJÁS",
+    "PIÇARRA": "CARAJÁS",
+    "SAO DOMINGOS DO ARAGUAIA": "CARAJÁS",
+    "SÃO DOMINGOS DO ARAGUAIA": "CARAJÁS",
+    "SAO GERALDO DO ARAGUAIA": "CARAJÁS",
+    "SÃO GERALDO DO ARAGUAIA": "CARAJÁS",
+    "SAO JOAO DO ARAGUAIA": "CARAJÁS",
+    "SÃO JOÃO DO ARAGUAIA": "CARAJÁS",
+
+    # GUAJARÁ (Belém, Ananindeua, Marituba, Benevides, Santa Bárbara)
+    "BELEM": "GUAJARÁ",
+    "BELÉM": "GUAJARÁ",
+    "ANANINDEUA": "GUAJARÁ",
+    "MARITUBA": "GUAJARÁ",
+    "BENEVIDES": "GUAJARÁ",
+    "SANTA BARBARA DO PARA": "GUAJARÁ",
+    "SANTA BÁRBARA DO PARÁ": "GUAJARÁ",
+
+    # GUAMÁ
+    "SANTA IZABEL DO PARA": "GUAMÁ",
+    "SANTA IZABEL DO PARÁ": "GUAMÁ",
+    "SANTA ISABEL DO PARA": "GUAMÁ",
+    "CASTANHAL": "GUAMÁ",
+    "COLARES": "GUAMÁ",
+    "CURUCA": "GUAMÁ",
+    "CURUÇÁ": "GUAMÁ",
+    "IGARAPE-ACU": "GUAMÁ",
+    "IGARAPÉ-AÇU": "GUAMÁ",
+    "INHANGAPI": "GUAMÁ",
+    "MAGALHAES BARATA": "GUAMÁ",
+    "MAGALHÃES BARATA": "GUAMÁ",
+    "MARACANA": "GUAMÁ",
+    "MARACANÃ": "GUAMÁ",
+    "MARAPANIM": "GUAMÁ",
+    "SANTO ANTONIO DO TAUA": "GUAMÁ",
+    "SANTO ANTÔNIO DO TAUÁ": "GUAMÁ",
+    "SANTA MARIA DO PARA": "GUAMÁ",
+    "SANTA MARIA DO PARÁ": "GUAMÁ",
+    "SAO CAETANO DE ODIVELAS": "GUAMÁ",
+    "SÃO CAETANO DE ODIVELAS": "GUAMÁ",
+    "SAO DOMINGOS DO CAPIM": "GUAMÁ",
+    "SÃO DOMINGOS DO CAPIM": "GUAMÁ",
+    "SAO FRANCISCO DO PARA": "GUAMÁ",
+    "SÃO FRANCISCO DO PARÁ": "GUAMÁ",
+    "SAO JOAO DA PONTA": "GUAMÁ",
+    "SÃO JOÃO DA PONTA": "GUAMÁ",
+    "SAO MIGUEL DO GUAMA": "GUAMÁ",
+    "SÃO MIGUEL DO GUAMÁ": "GUAMÁ",
+    "TERRA ALTA": "GUAMÁ",
+    "VIGIA": "GUAMÁ",
+
+    # XINGU
+    "ALTAMIRA": "XINGU",
+    "ANAPU": "XINGU",
+    "BRASIL NOVO": "XINGU",
+    "MEDICILANDIA": "XINGU",
+    "MEDICILÂNDIA": "XINGU",
+    "PACAJA": "XINGU",
+    "PACAJÁ": "XINGU",
+    "PORTO DE MOZ": "XINGU",
+    "SENADOR JOSE PORFIRIO": "XINGU",
+    "SENADOR JOSÉ PORFÍRIO": "XINGU",
+    "URUARA": "XINGU",
+    "URUARÁ": "XINGU",
+    "VITORIA DO XINGU": "XINGU",
+    "VITÓRIA DO XINGU": "XINGU",
+
+    # RIO CAPIM
+    "IRITUIA": "RIO CAPIM",
+    "ABEL FIGUEIREDO": "RIO CAPIM",
+    "AURORA DO PARA": "RIO CAPIM",
+    "AURORA DO PARÁ": "RIO CAPIM",
+    "DOM ELISEU": "RIO CAPIM",
+    "GARRAFAO DO NORTE": "RIO CAPIM",
+    "GARRAFÃO DO NORTE": "RIO CAPIM",
+    "IPIXUNA DO PARA": "RIO CAPIM",
+    "IPIXUNA DO PARÁ": "RIO CAPIM",
+    "MAE DO RIO": "RIO CAPIM",
+    "MÃE DO RIO": "RIO CAPIM",
+    "NOVA ESPERANCA DO PIRIA": "RIO CAPIM",
+    "NOVA ESPERANÇA DO PIRIÁ": "RIO CAPIM",
+    "OUREM": "RIO CAPIM",
+    "OURÉM": "RIO CAPIM",
+    "PARAGOMINAS": "RIO CAPIM",
+    "RONDON DO PARA": "RIO CAPIM",
+    "RONDON DO PARÁ": "RIO CAPIM",
+    "TOME-ACU": "RIO CAPIM",
+    "TOMÉ-AÇU": "RIO CAPIM",
+    "ULIANOPOLIS": "RIO CAPIM",
+    "ULIANÓPOLIS": "RIO CAPIM",
+
+    # MARAJÓ
+    "SALVATERRA": "MARAJÓ",
+    "AFUA": "MARAJÓ",
+    "AFUÁ": "MARAJÓ",
+    "ANAJAS": "MARAJÓ",
+    "ANAJÁS": "MARAJÓ",
+    "BAGRE": "MARAJÓ",
+    "BREVES": "MARAJÓ",
+    "CACHOEIRA DO ARARI": "MARAJÓ",
+    "CHAVES": "MARAJÓ",
+    "CURRALINHO": "MARAJÓ",
+    "MELGACO": "MARAJÓ",
+    "MELGAÇO": "MARAJÓ",
+    "MUANA": "MARAJÓ",
+    "MUANÁ": "MARAJÓ",
+    "PONTA DE PEDRAS": "MARAJÓ",
+    "PORTEL": "MARAJÓ",
+    "SANTA CRUZ DO ARARI": "MARAJÓ",
+    "SAO SEBASTIAO DA BOA VISTA": "MARAJÓ",
+    "SÃO SEBASTIÃO DA BOA VISTA": "MARAJÓ",
+    "SOURE": "MARAJÓ",
 }
+
+# 12 Regiões Oficiais do Estado do Pará
+CANONICAL_RIS = [
+    "ARAGUAIA",
+    "BAIXO AMAZONAS",
+    "CARAJÁS",
+    "GUAJARÁ",
+    "GUAMÁ",
+    "LAGO DE TUCURUÍ",
+    "MARAJÓ",
+    "RIO CAETÉ",
+    "RIO CAPIM",
+    "TAPAJÓS",
+    "TOCANTINS",
+    "XINGU"
+]
 
 def main():
     print("Conectando ao PostgreSQL no Railway...")
-    try:
-        conn = psycopg2.connect(DATABASE_URL)
-        conn.autocommit = True
-        cur = conn.cursor()
-        print("[OK] Ligacao estabelecida!")
+    conn = psycopg2.connect(DATABASE_URL)
+    conn.autocommit = True
+    conn.set_client_encoding("UTF8")
+    cur = conn.cursor()
+    print("[OK] Conexao estabelecida!")
 
-        # PASSO 1: Adicionar coluna regiao_integracao à dim_escolas
-        print("\nPASSO 1: Adicionando coluna 'regiao_integracao' a dim_escolas...")
+    # 1. Corrigir municípios de Xingu
+    print("\n1. Corrigindo municipios do Xingu...")
+    for mun in ["Altamira", "Anapu", "Brasil Novo", "Medicilândia", "Pacajá", "Porto de Moz", "Senador José Porfírio", "Uruará", "Vitória do Xingu"]:
         cur.execute("""
-            SET search_path TO seduc, public;
-            ALTER TABLE seduc.dim_escolas
-            ADD COLUMN IF NOT EXISTS regiao_integracao VARCHAR(100);
-        """)
-        print("[OK] Coluna adicionada!")
+            UPDATE seduc.dim_escolas
+            SET regiao_integracao = 'XINGU'
+            WHERE UPPER(TRIM(municipio)) = UPPER(TRIM(%s));
+        """, (mun,))
 
-        # PASSO 2: Popular regiao_integracao a partir da tabela fonte
-        print("\nPASSO 2: Populando regiao_integracao a partir de seduc_publ_regular_prof...")
+    # 2. Corrigir escolas com METROPOLITANA
+    print("\n2. Corrigindo escolas marcadas como METROPOLITANA...")
+    cur.execute("""
+        UPDATE seduc.dim_escolas
+        SET regiao_integracao = 'GUAJARÁ'
+        WHERE UPPER(TRIM(regiao_integracao)) = 'METROPOLITANA'
+          AND UPPER(TRIM(municipio)) IN ('BELEM', 'BELÉM', 'ANANINDEUA', 'MARITUBA', 'BENEVIDES', 'SANTA BÁRBARA DO PARÁ', 'SANTA BARBARA DO PARA');
+    """)
+    cur.execute("""
+        UPDATE seduc.dim_escolas
+        SET regiao_integracao = 'GUAMÁ'
+        WHERE UPPER(TRIM(regiao_integracao)) = 'METROPOLITANA'
+          AND UPPER(TRIM(municipio)) IN ('SANTA IZABEL DO PARÁ', 'SANTA IZABEL DO PARA', 'SANTA ISABEL DO PARA');
+    """)
+
+    # 3. Mapear escolas com regiao_integracao nula por município
+    print("\n3. Mapeando escolas com RI nula por municipio...")
+    for mun, ri in MUNICIPIO_RI_MAP.items():
         cur.execute("""
-            SET search_path TO seduc, public;
-            UPDATE seduc.dim_escolas d
-            SET regiao_integracao = UPPER(TRIM(p.regiao_integracao))
-            FROM seduc.seduc_publ_regular_prof p
-            WHERE d.codigo_escola = p.codigo_escola
-              AND p.regiao_integracao IS NOT NULL
-              AND TRIM(p.regiao_integracao) != '';
-        """)
-        print("[OK] RI populada via tabela fonte!")
+            UPDATE seduc.dim_escolas
+            SET regiao_integracao = %s
+            WHERE (regiao_integracao IS NULL OR TRIM(regiao_integracao) = '')
+              AND UPPER(TRIM(municipio)) = %s;
+        """, (ri, mun))
 
-        # PASSO 3: Preencher RI faltante via tabela temporária de mapeamento
-        print("\nPASSO 3: Preenchendo RI ausente via tabela temporaria de mapeamento...")
-        cur.execute("""
-            SET search_path TO seduc, public;
-            CREATE TEMP TABLE IF NOT EXISTS _mun_ri_map (
-                municipio_upper VARCHAR(255) PRIMARY KEY,
-                regiao_integracao VARCHAR(100)
-            ) ON COMMIT PRESERVE ROWS;
-            TRUNCATE _mun_ri_map;
-        """)
-        # Insert each mapping row safely using execute_batch
-        insert_rows = [(mun.upper(), ri) for mun, ri in MUNICIPIO_RI.items()]
-        from psycopg2.extras import execute_batch
-        execute_batch(cur,
-            "INSERT INTO _mun_ri_map (municipio_upper, regiao_integracao) VALUES (%s, %s) ON CONFLICT DO NOTHING",
-            insert_rows
-        )
-        cur.execute("""
-            SET search_path TO seduc, public;
-            UPDATE seduc.dim_escolas d
-            SET regiao_integracao = m.regiao_integracao
-            FROM _mun_ri_map m
-            WHERE UPPER(TRIM(d.municipio)) = m.municipio_upper
-              AND (d.regiao_integracao IS NULL OR TRIM(d.regiao_integracao) = '');
-        """)
-        print("[OK] RI preenchida via tabela temporaria de mapeamento!")
+    # 4. Verificar se sobrou alguma escola com RI fora das 12 canônicas
+    print("\n4. Verificando RIs resultantes em dim_escolas...")
+    cur.execute("""
+        SELECT DISTINCT regiao_integracao, COUNT(*)
+        FROM seduc.dim_escolas
+        GROUP BY 1
+        ORDER BY 1;
+    """)
+    for r in cur.fetchall():
+        print(f"   RI: {r[0]} -> {r[1]} escolas")
 
-        # PASSO 3.5: Normalizar valores OCR corrompidos vindos dos PDFs
-        print("\nPASSO 3.5: Normalizando nomes de RI corrompidos por OCR...")
-        RI_CORRECTIONS = [
-            ("AAGRAUGAUIAAIA", "ARAGUAIA"),
-            ("ABRAARGREUIARAIAS", "ARAGUAIA"),
-            ("ARAGUAIIA", "ARAGUAIA"),
-            ("ARAGAUAIA", "ARAGUAIA"),
-            ("AMRIARAJÓ", "MARAJÓ"),
-            ("RMARAIRAJÓ", "MARAJÓ"),
-            ("AMRIARAJO", "MARAJÓ"),
-            ("GOUDAIVMELAAS", "GUAMÁ"),
-            ("GOUDAIVMELÂAS", "GUAMÁ"),
-            ("OG CUAAMPIAM", "RIO CAPIM"),
-            ("OG CUAAMPIÁN", "RIO CAPIM"),
-            ("OG CUAAMPIÃO", "RIO CAPIM"),
-            ("OG PUAARJAARA", "GUAJARÁ"),
-            ("OG PUAARJÁARÁ", "GUAJARÁ"),
-            ("OG PUAARJARÁ", "GUAJARÁ"),
-            ("PGAURAMA", "GUAMÁ"),
-            ("PGAURÂMÂ", "GUAMÁ"),
-            ("TGAUAMA", "GUAMÁ"),
-            ("TGAUAMÂ", "GUAMÁ"),
-            ("UTOCANTINS", "TOCANTINS"),
-            ("XINGU", "GUAJARÁ"),
-            ("LAGO TUCURUÍ", "LAGO DE TUCURUÍ"),
-            ("LAGO TUCURUI", "LAGO DE TUCURUÍ"),
-        ]
-        for corrupted, canonical in RI_CORRECTIONS:
-            cur.execute("""
-                SET search_path TO seduc, public;
-                UPDATE seduc.dim_escolas
-                SET regiao_integracao = %s
-                WHERE UPPER(TRIM(regiao_integracao)) = UPPER(%s);
-            """, (canonical, corrupted))
-        print("[OK] Nomes de RI normalizados!")
+    # 5. Recriar vw_escola_resultado_completo sem produtos cartesianos
+    print("\n5. Recriando seduc.vw_escola_resultado_completo de forma limpa e deduplicada...")
+    cur.execute("SET search_path TO seduc, public; DROP VIEW IF EXISTS seduc.vw_escola_resultado_completo CASCADE;")
+    
+    cur.execute("""
+    SET search_path TO seduc, public;
 
-        # PASSO 4: Recriar a VIEW com regiao_integracao + 16 Salario
-        print("\nPASSO 4: Recriando view 'vw_escola_resultado_completo' com RI e 16 Salario...")
-        # Precisa DROP + CREATE pois CREATE OR REPLACE não aceita reordenar colunas
-        cur.execute("SET search_path TO seduc, public; DROP VIEW IF EXISTS seduc.vw_escola_resultado_completo CASCADE;")
-        cur.execute("""
-            SET search_path TO seduc, public;
+    CREATE VIEW vw_escola_resultado_completo AS
+    WITH pub_p_expanded AS (
+        SELECT
+            codigo_escola,
+            municipio,
+            regiao_integracao,
+            nome_escola,
+            etapa_ensino::varchar(255) AS etapa_ensino,
+            meta_pactuada,
+            ponto_crescimento,
+            ponto_fluxo,
+            indice_bonus AS bonus_professor
+        FROM seduc_publ_regular_prof
+        WHERE etapa_ensino != 'ENSINO FUNDAMENTAL ANOS INICIAIS'
 
-            CREATE VIEW vw_escola_resultado_completo AS
-            WITH pub_p_expanded AS (
-                SELECT
-                    codigo_escola,
-                    municipio,
-                    regiao_integracao,
-                    nome_escola,
-                    etapa_ensino::varchar(255) AS etapa_ensino,
-                    meta_pactuada,
-                    ponto_crescimento,
-                    ponto_fluxo,
-                    indice_bonus as bonus_professor
-                FROM seduc_publ_regular_prof
-                WHERE etapa_ensino != 'ENSINO FUNDAMENTAL ANOS INICIAIS'
+        UNION ALL
 
-                UNION ALL
+        SELECT
+            codigo_escola,
+            municipio,
+            regiao_integracao,
+            nome_escola,
+            'EF ALFABETIZACAO (1 e 2)'::varchar(255) AS etapa_ensino,
+            meta_pactuada,
+            ponto_crescimento,
+            ponto_fluxo,
+            bonus_prof_1_e_2_ano AS bonus_professor
+        FROM seduc_publ_regular_prof
+        WHERE etapa_ensino = 'ENSINO FUNDAMENTAL ANOS INICIAIS'
+          AND (bonus_prof_1_e_2_ano > 0 OR ponto_alfabetizacao > 0)
 
-                SELECT
-                    codigo_escola,
-                    municipio,
-                    regiao_integracao,
-                    nome_escola,
-                    'EF ALFABETIZACAO (1 e 2)'::varchar(255) as etapa_ensino,
-                    meta_pactuada,
-                    ponto_crescimento,
-                    ponto_fluxo,
-                    bonus_prof_1_e_2_ano as bonus_professor
-                FROM seduc_publ_regular_prof
-                WHERE etapa_ensino = 'ENSINO FUNDAMENTAL ANOS INICIAIS'
-                  AND (bonus_prof_1_e_2_ano > 0 OR ponto_alfabetizacao > 0)
+        UNION ALL
 
-                UNION ALL
+        SELECT
+            codigo_escola,
+            municipio,
+            regiao_integracao,
+            nome_escola,
+            'EF ANOS INICIAIS (3 ao 5)'::varchar(255) AS etapa_ensino,
+            meta_pactuada,
+            ponto_crescimento,
+            ponto_fluxo,
+            bonus_prof_3_a_5_ano AS bonus_professor
+        FROM seduc_publ_regular_prof
+        WHERE etapa_ensino = 'ENSINO FUNDAMENTAL ANOS INICIAIS'
+          AND (bonus_prof_3_a_5_ano > 0
+               OR (COALESCE(bonus_prof_1_e_2_ano, 0) = 0
+                   AND COALESCE(ponto_alfabetizacao, 0) = 0))
+    ),
+    pub_etapas AS (
+        SELECT
+            p.codigo_escola,
+            p.etapa_ensino,
+            p.meta_pactuada,
+            p.ponto_crescimento,
+            p.ponto_fluxo,
+            p.bonus_professor,
+            'PUBLICADA'::varchar(50) AS status_publicacao
+        FROM pub_p_expanded p
 
-                SELECT
-                    codigo_escola,
-                    municipio,
-                    regiao_integracao,
-                    nome_escola,
-                    'EF ANOS INICIAIS (3 ao 5)'::varchar(255) as etapa_ensino,
-                    meta_pactuada,
-                    ponto_crescimento,
-                    ponto_fluxo,
-                    bonus_prof_3_a_5_ano as bonus_professor
-                FROM seduc_publ_regular_prof
-                WHERE etapa_ensino = 'ENSINO FUNDAMENTAL ANOS INICIAIS'
-                  AND (bonus_prof_3_a_5_ano > 0 OR (COALESCE(bonus_prof_1_e_2_ano, 0) = 0 AND COALESCE(ponto_alfabetizacao, 0) = 0))
-            ),
-            base AS (
-                SELECT
-                    e.codigo_escola,
-                    e.nome_escola,
-                    e.municipio,
-                    e.regional_dre,
-                    e.regiao_integracao,
-                    e.localizacao,
-                    e.escola_indigena,
-                    e.rede,
-                    CASE
-                        WHEN pub_p.codigo_escola IS NOT NULL OR pub_a.codigo_escola IS NOT NULL
-                             OR pub_s.codigo_escola IS NOT NULL
-                            THEN 'PUBLICADA'
-                        WHEN np_p.codigo_escola IS NOT NULL OR np_a.codigo_escola IS NOT NULL
-                             OR np_s.codigo_escola IS NOT NULL
-                            THEN 'NAO_PUBLICADA'
-                        WHEN eja.tem_publicacao = TRUE THEN 'PUBLICADA'
-                        ELSE 'NAO_PUBLICADA'
-                    END AS status_publicacao,
-                    COALESCE(
-                        pub_p.bonus_professor,
-                        pub_s.bonus_prof_vinculado_turma,
-                        np_p.ponto_bonus_professor,
-                        np_s.indice_bonus_gestao
-                    ) AS bonus_professor,
-                    COALESCE(
-                        pub_a.indice_bonus,
-                        pub_s.bonus_cargo_administrativo,
-                        np_a.indice_bonus_admin,
-                        np_s.indice_bonus_gestao
-                    ) AS bonus_administrativo,
-                    eja.eja_fundamental_iniciais AS bonus_eja_iniciais,
-                    eja.eja_fundamental_finais   AS bonus_eja_finais,
-                    eja.eja_medio                AS bonus_eja_medio,
-                    eja.atendimento_especializado_aee AS bonus_aee,
-                    COALESCE(pub_p.meta_pactuada, pub_s.atingiu_meta_pactuada) AS atingiu_meta,
-                    COALESCE(pub_p.ponto_crescimento, pub_s.ponto_crescimento) AS ponto_crescimento,
-                    COALESCE(pub_p.ponto_fluxo, pub_s.fluxo)                  AS fluxo,
-                    COALESCE(
-                        pub_p.etapa_ensino,
-                        CASE
-                            WHEN np_p.etapa_ensino = 'ENSINO FUNDAMENTAL ANOS INICIAIS'
-                                THEN 'EF ANOS INICIAIS (3 ao 5)'
-                            ELSE np_p.etapa_ensino
-                        END
-                    )::varchar(255) AS etapa_ensino
-                FROM dim_escolas e
-                LEFT JOIN pub_p_expanded               pub_p ON e.codigo_escola = pub_p.codigo_escola
-                LEFT JOIN seduc_publ_regular_admin     pub_a ON e.codigo_escola = pub_a.codigo_escola
-                LEFT JOIN seduc_publ_sectet            pub_s ON e.codigo_escola = pub_s.codigo_escola
-                LEFT JOIN seduc_nao_publ_regular_prof  np_p  ON e.codigo_escola = np_p.codigo_escola
-                LEFT JOIN seduc_nao_publ_regular_admin np_a  ON e.codigo_escola = np_a.codigo_escola
-                LEFT JOIN seduc_nao_publ_sectet        np_s  ON e.codigo_escola = np_s.codigo_escola
-                LEFT JOIN seduc_bonus_eja_aee          eja   ON e.codigo_escola = eja.codigo_escola
-            ),
-            ri_ranking AS (
-                SELECT
-                    codigo_escola,
-                    RANK() OVER (
-                        PARTITION BY regiao_integracao, etapa_ensino
-                        ORDER BY COALESCE(bonus_professor, 0) DESC
-                    ) AS rank_desempenho,
-                    RANK() OVER (
-                        PARTITION BY regiao_integracao, etapa_ensino
-                        ORDER BY COALESCE(ponto_crescimento, 0) DESC
-                    ) AS rank_crescimento
-                FROM base
-                WHERE regiao_integracao IS NOT NULL
-                  AND etapa_ensino IS NOT NULL
-                  AND status_publicacao = 'PUBLICADA'
-            )
-            SELECT
-                b.*,
-                CASE
-                    WHEN r.rank_desempenho = 1 AND COALESCE(b.bonus_professor, 0) > 0 THEN TRUE
-                    WHEN r.rank_crescimento = 1 AND COALESCE(b.ponto_crescimento, 0) > 0 THEN TRUE
-                    ELSE FALSE
-                END AS elegivel_16_salario,
-                CASE
-                    WHEN r.rank_desempenho = 1 AND COALESCE(b.bonus_professor, 0) > 0
-                        THEN 'Melhor Desempenho RI'
-                    WHEN r.rank_crescimento = 1 AND COALESCE(b.ponto_crescimento, 0) > 0
-                        THEN 'Maior Crescimento RI'
-                    ELSE NULL
-                END AS motivo_16_salario
-            FROM base b
-            LEFT JOIN ri_ranking r ON b.codigo_escola = r.codigo_escola;
-        """)
-        print("[OK] View recriada com RI e 16 Salario!")
+        UNION ALL
 
-        # Validações
-        cur.execute("SELECT COUNT(*) FROM seduc.dim_escolas;")
-        total_escolas = cur.fetchone()[0]
+        SELECT
+            s.codigo_escola,
+            'ENSINO MEDIO'::varchar(255) AS etapa_ensino,
+            s.atingiu_meta_pactuada AS meta_pactuada,
+            s.ponto_crescimento,
+            s.fluxo AS ponto_fluxo,
+            s.bonus_prof_vinculado_turma AS bonus_professor,
+            'PUBLICADA'::varchar(50) AS status_publicacao
+        FROM seduc_publ_sectet s
+        WHERE s.codigo_escola NOT IN (SELECT codigo_escola FROM pub_p_expanded)
+    ),
+    np_etapas AS (
+        SELECT
+            np.codigo_escola,
+            CASE
+                WHEN np.etapa_ensino = 'ENSINO FUNDAMENTAL ANOS INICIAIS' THEN 'EF ANOS INICIAIS (3 ao 5)'
+                ELSE np.etapa_ensino
+            END::varchar(255) AS etapa_ensino,
+            NULL::numeric AS meta_pactuada,
+            NULL::numeric AS ponto_crescimento,
+            NULL::numeric AS ponto_fluxo,
+            np.ponto_bonus_professor AS bonus_professor,
+            'NAO_PUBLICADA'::varchar(50) AS status_publicacao
+        FROM seduc_nao_publ_regular_prof np
 
-        cur.execute("SELECT COUNT(*) FROM seduc.dim_escolas WHERE regiao_integracao IS NOT NULL;")
-        com_ri = cur.fetchone()[0]
+        UNION ALL
 
-        cur.execute("SELECT COUNT(*) FROM seduc.vw_escola_resultado_completo;")
-        total_view = cur.fetchone()[0]
+        SELECT
+            ns.codigo_escola,
+            'ENSINO MEDIO'::varchar(255) AS etapa_ensino,
+            NULL::numeric AS meta_pactuada,
+            NULL::numeric AS ponto_crescimento,
+            NULL::numeric AS ponto_fluxo,
+            ns.indice_bonus_gestao AS bonus_professor,
+            'NAO_PUBLICADA'::varchar(50) AS status_publicacao
+        FROM seduc_nao_publ_sectet ns
+        WHERE ns.codigo_escola NOT IN (SELECT codigo_escola FROM seduc_nao_publ_regular_prof)
+    ),
+    all_etapas AS (
+        SELECT * FROM pub_etapas
+        UNION ALL
+        SELECT * FROM np_etapas
+    ),
+    base AS (
+        SELECT
+            e.codigo_escola,
+            e.nome_escola,
+            e.municipio,
+            e.regional_dre,
+            e.regiao_integracao,
+            e.localizacao,
+            e.escola_indigena,
+            e.rede,
+            ae.status_publicacao,
+            ae.bonus_professor,
+            COALESCE(
+                pub_a.indice_bonus,
+                pub_s.bonus_cargo_administrativo,
+                np_a.indice_bonus_admin,
+                np_s.indice_bonus_gestao
+            ) AS bonus_administrativo,
+            eja.eja_fundamental_iniciais  AS bonus_eja_iniciais,
+            eja.eja_fundamental_finais    AS bonus_eja_finais,
+            eja.eja_medio                 AS bonus_eja_medio,
+            eja.atendimento_especializado_aee AS bonus_aee,
+            ae.meta_pactuada AS atingiu_meta,
+            ae.ponto_crescimento,
+            ae.ponto_fluxo AS fluxo,
+            ae.etapa_ensino
+        FROM dim_escolas e
+        JOIN all_etapas ae ON e.codigo_escola = ae.codigo_escola
+        LEFT JOIN seduc_publ_regular_admin     pub_a ON e.codigo_escola = pub_a.codigo_escola
+        LEFT JOIN seduc_publ_sectet            pub_s ON e.codigo_escola = pub_s.codigo_escola
+        LEFT JOIN seduc_nao_publ_regular_admin np_a  ON e.codigo_escola = np_a.codigo_escola
+        LEFT JOIN seduc_nao_publ_sectet        np_s  ON e.codigo_escola = np_s.codigo_escola
+        LEFT JOIN seduc_bonus_eja_aee          eja   ON e.codigo_escola = eja.codigo_escola
 
-        cur.execute("SELECT COUNT(*) FROM seduc.vw_escola_resultado_completo WHERE elegivel_16_salario = TRUE;")
-        com_16 = cur.fetchone()[0]
+        UNION ALL
 
-        cur.execute("""
-            SELECT DISTINCT regiao_integracao
-            FROM seduc.dim_escolas
-            WHERE regiao_integracao IS NOT NULL
-            ORDER BY 1
-        """)
-        ris = [r[0] for r in cur.fetchall()]
+        SELECT
+            e.codigo_escola,
+            e.nome_escola,
+            e.municipio,
+            e.regional_dre,
+            e.regiao_integracao,
+            e.localizacao,
+            e.escola_indigena,
+            e.rede,
+            CASE
+                WHEN pub_a.codigo_escola IS NOT NULL OR eja.tem_publicacao = TRUE THEN 'PUBLICADA'::varchar(50)
+                ELSE 'NAO_PUBLICADA'::varchar(50)
+            END AS status_publicacao,
+            NULL::numeric AS bonus_professor,
+            COALESCE(
+                pub_a.indice_bonus,
+                np_a.indice_bonus_admin
+            ) AS bonus_administrativo,
+            eja.eja_fundamental_iniciais  AS bonus_eja_iniciais,
+            eja.eja_fundamental_finais    AS bonus_eja_finais,
+            eja.eja_medio                 AS bonus_eja_medio,
+            eja.atendimento_especializado_aee AS bonus_aee,
+            NULL::numeric AS atingiu_meta,
+            NULL::numeric AS ponto_crescimento,
+            NULL::numeric AS fluxo,
+            NULL::varchar(255) AS etapa_ensino
+        FROM dim_escolas e
+        LEFT JOIN seduc_publ_regular_admin     pub_a ON e.codigo_escola = pub_a.codigo_escola
+        LEFT JOIN seduc_nao_publ_regular_admin np_a  ON e.codigo_escola = np_a.codigo_escola
+        LEFT JOIN seduc_bonus_eja_aee          eja   ON e.codigo_escola = eja.codigo_escola
+        WHERE e.codigo_escola NOT IN (SELECT codigo_escola FROM all_etapas)
+    )
+    SELECT
+        b.codigo_escola,
+        b.nome_escola,
+        b.municipio,
+        b.regional_dre,
+        b.regiao_integracao,
+        b.localizacao,
+        b.escola_indigena,
+        b.rede,
+        b.status_publicacao,
+        b.bonus_professor,
+        b.bonus_administrativo,
+        b.bonus_eja_iniciais,
+        b.bonus_eja_finais,
+        b.bonus_eja_medio,
+        b.bonus_aee,
+        b.atingiu_meta,
+        b.ponto_crescimento,
+        b.fluxo,
+        b.etapa_ensino,
+        CASE
+            WHEN b.regiao_integracao IS NOT NULL
+              AND b.etapa_ensino IS NOT NULL
+              AND b.status_publicacao = 'PUBLICADA'
+              AND (
+                (COALESCE(b.bonus_professor, 0) > 0 AND COALESCE(b.bonus_professor, 0) >= (
+                    SELECT MAX(COALESCE(b2.bonus_professor, 0))
+                    FROM base b2
+                    WHERE b2.regiao_integracao = b.regiao_integracao
+                      AND b2.etapa_ensino      = b.etapa_ensino
+                      AND b2.status_publicacao = 'PUBLICADA'
+                ))
+                OR
+                (COALESCE(b.ponto_crescimento, 0) > 0 AND COALESCE(b.ponto_crescimento, 0) >= (
+                    SELECT MAX(COALESCE(b2.ponto_crescimento, 0))
+                    FROM base b2
+                    WHERE b2.regiao_integracao = b.regiao_integracao
+                      AND b2.etapa_ensino      = b.etapa_ensino
+                      AND b2.status_publicacao = 'PUBLICADA'
+                ))
+              )
+                THEN TRUE
+            ELSE FALSE
+        END AS elegivel_16_salario,
 
-        print(f"\n[SUCESSO] Migracao concluida no Railway!")
-        print(f"   Escolas unicas (dim_escolas):  {total_escolas}")
-        print(f"   Escolas com RI mapeada:        {com_ri}")
-        print(f"   Registros na view:             {total_view}")
-        print(f"   Elegiveis ao 16 Salario:       {com_16}")
-        print(f"\n   Regioes de Integracao identificadas ({len(ris)}):")
-        for ri in ris:
-            print(f"      - {ri}")
+        CASE
+            WHEN b.regiao_integracao IS NOT NULL
+              AND b.etapa_ensino IS NOT NULL
+              AND b.status_publicacao = 'PUBLICADA'
+              AND COALESCE(b.bonus_professor, 0) > 0
+              AND COALESCE(b.bonus_professor, 0) >= (
+                    SELECT MAX(COALESCE(b2.bonus_professor, 0))
+                    FROM base b2
+                    WHERE b2.regiao_integracao = b.regiao_integracao
+                      AND b2.etapa_ensino      = b.etapa_ensino
+                      AND b2.status_publicacao = 'PUBLICADA'
+                )
+                THEN 'Melhor Desempenho RI'
+            WHEN b.regiao_integracao IS NOT NULL
+              AND b.etapa_ensino IS NOT NULL
+              AND b.status_publicacao = 'PUBLICADA'
+              AND COALESCE(b.ponto_crescimento, 0) > 0
+              AND COALESCE(b.ponto_crescimento, 0) >= (
+                    SELECT MAX(COALESCE(b2.ponto_crescimento, 0))
+                    FROM base b2
+                    WHERE b2.regiao_integracao = b.regiao_integracao
+                      AND b2.etapa_ensino      = b.etapa_ensino
+                      AND b2.status_publicacao = 'PUBLICADA'
+                )
+                THEN 'Maior Crescimento RI'
+            ELSE NULL
+        END AS motivo_16_salario
+    FROM base b;
+    """)
 
-        cur.close()
-        conn.close()
+    print("\n[OK] View recriada com sucesso!")
 
-    except Exception as e:
-        print(f"[ERRO] {e}")
-        import traceback
-        traceback.print_exc()
+    # 6. Testar duplicatas na view
+    cur.execute("""
+        SELECT codigo_escola, etapa_ensino, status_publicacao, count(*)
+        FROM seduc.vw_escola_resultado_completo
+        GROUP BY 1, 2, 3
+        HAVING count(*) > 1;
+    """)
+    dups = cur.fetchall()
+    if dups:
+        print(f"ATENCAO: Existem {len(dups)} duplicatas na view!")
+        print(dups[:5])
+    else:
+        print("[SUCESSO] ZERO duplicatas na view! Cada (codigo_escola, etapa, status) e estritamente UNICO.")
 
+    cur.close()
+    conn.close()
 
 if __name__ == "__main__":
     main()

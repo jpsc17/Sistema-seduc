@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, MapPin, Building2, GraduationCap, TrendingUp, Award, CheckCircle2, AlertCircle, Star, XCircle } from "lucide-react";
+import { X, MapPin, Building2, GraduationCap, TrendingUp, Award, Star, XCircle, CheckCircle2 } from "lucide-react";
 import { formatBonus, formatEtapaEnsino, calcularSalarios, normalizarBonus, LIMITE_BONUS } from "@/lib/utils";
 import { EtapaBadge } from "./TabPublicadas";
 
@@ -31,29 +31,24 @@ interface SchoolDetail {
 
 interface SchoolDrawerProps {
   codigoEscola: string | null;
+  /** Etapa da linha clicada — garante contexto correto no drawer */
+  etapa?: string | null;
   onClose: () => void;
 }
 
-function BonusBar({ label, value, max }: { label: string; value: number | null; max: number }) {
+function BonusBar({ label, value }: { label: string; value: number | null }) {
   const numVal = Number(value) || 0;
-  const pct = Math.min((numVal / max) * 100, 100);
   const { valorLimitado, percentualAtingido } = normalizarBonus(numVal);
   const isTeto = valorLimitado >= LIMITE_BONUS;
 
-  const barColor = isTeto
-    ? "#D97706"
-    : percentualAtingido >= 70
-    ? "#15803D"
-    : "#A71B2B";
+  const barColor = isTeto ? "#D97706" : percentualAtingido >= 70 ? "#15803D" : "#A71B2B";
 
   return (
     <div>
       <div className="flex justify-between items-center mb-1">
         <span className="text-xs font-semibold text-[#1D1D1B]">{label}</span>
         <div className="text-right">
-          <span className="text-xs font-bold text-[#A71B2B]">
-            {formatBonus(value)}
-          </span>
+          <span className="text-xs font-bold text-[#A71B2B]">{formatBonus(value)}</span>
           {numVal > 0 && (
             <span className="text-[10px] font-semibold text-amber-700 ml-1.5">
               {isTeto ? "(100% do teto)" : `(${percentualAtingido}% do teto)`}
@@ -65,7 +60,7 @@ function BonusBar({ label, value, max }: { label: string; value: number | null; 
         <div
           className="h-full rounded-full transition-all duration-500 ease-out"
           style={{
-            width: `${pct}%`,
+            width: `${percentualAtingido}%`,
             backgroundColor: numVal > 0 ? barColor : "#CBD5E1",
           }}
         />
@@ -74,7 +69,6 @@ function BonusBar({ label, value, max }: { label: string; value: number | null; 
   );
 }
 
-/** Card visual de salário-bônus para o drawer (14º, 15º, 16º) */
 function SalarioCard({
   numero,
   ativo,
@@ -110,14 +104,13 @@ function SalarioCard({
   };
 
   const c = configs[numero];
-
   return (
     <div className={`flex items-start gap-2.5 p-2.5 rounded-lg border ${c.bg}`}>
       <div className="mt-0.5 shrink-0">{c.icon}</div>
       <div className="flex-1 min-w-0">
         <p className={`text-[11px] font-bold ${c.labelColor}`}>{c.badge}</p>
         <p className={`text-[11px] ${ativo ? "text-slate-700" : "text-slate-400"}`}>
-          {ativo ? descricao : `Não conquistado — ${descricao.replace("✔ ", "")}`}
+          {ativo ? descricao : `Não conquistado — ${descricao}`}
         </p>
         {numero === "16" && ativo && motivo && (
           <p className="text-[10px] font-semibold text-amber-600 mt-0.5">
@@ -129,7 +122,7 @@ function SalarioCard({
   );
 }
 
-export default function SchoolDrawer({ codigoEscola, onClose }: SchoolDrawerProps) {
+export default function SchoolDrawer({ codigoEscola, etapa, onClose }: SchoolDrawerProps) {
   const [escola, setEscola] = useState<SchoolDetail | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -138,24 +131,21 @@ export default function SchoolDrawer({ codigoEscola, onClose }: SchoolDrawerProp
       setEscola(null);
       return;
     }
-
     setLoading(true);
-    fetch(`/api/escolas/${codigoEscola}`)
+    // Passa etapa como query param para obter os dados corretos da etapa clicada
+    const params = new URLSearchParams();
+    if (etapa) params.set("etapa", etapa);
+    const url = `/api/escolas/${codigoEscola}${params.toString() ? `?${params.toString()}` : ""}`;
+
+    fetch(url)
       .then((r) => r.json())
-      .then((data) => {
-        if (!data.error) setEscola(data);
-      })
+      .then((data) => { if (!data.error) setEscola(data); })
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [codigoEscola]);
+  }, [codigoEscola, etapa]);
 
-  // Fechar com a tecla ESC
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onClose();
-      }
-    };
+    const handleKeyDown = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
@@ -163,19 +153,11 @@ export default function SchoolDrawer({ codigoEscola, onClose }: SchoolDrawerProp
   if (!codigoEscola) return null;
 
   const metaAtingida = escola?.atingiu_meta !== null && Number(escola?.atingiu_meta) >= 1;
-
   const etapaFormatada = formatEtapaEnsino(escola?.etapa_ensino);
+  const salarios = escola ? calcularSalarios(escola) : { tem14: false, tem15: false, tem16: false };
 
-  const salarios = escola
-    ? calcularSalarios(escola)
-    : { tem14: false, tem15: false, tem16: false };
-
-  // Calcular total acumulado (melhor bônus disponível)
   const totalAcumulado = Math.min(
-    Math.max(
-      Number(escola?.bonus_professor) || 0,
-      Number(escola?.bonus_administrativo) || 0
-    ),
+    Math.max(Number(escola?.bonus_professor) || 0, Number(escola?.bonus_administrativo) || 0),
     LIMITE_BONUS
   );
   const pctTotal = Math.round((totalAcumulado / LIMITE_BONUS) * 100);
@@ -183,19 +165,16 @@ export default function SchoolDrawer({ codigoEscola, onClose }: SchoolDrawerProp
   return (
     <div role="dialog" aria-modal="true" aria-labelledby="drawer-title">
       {/* Overlay */}
-      <div
-        className="fixed inset-0 bg-black/40 z-40 transition-opacity"
-        onClick={onClose}
-      />
+      <div className="fixed inset-0 bg-black/40 z-40 transition-opacity" onClick={onClose} />
 
       {/* Drawer */}
       <div className="fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl z-50 overflow-y-auto border-l border-[#E2E8F0] animate-in slide-in-from-right duration-200">
-        {/* Header do Drawer Institucional (#A71B2B) */}
+        {/* Header (#A71B2B) */}
         <div className="sticky top-0 bg-[#A71B2B] text-white p-5 z-10 shadow-xs">
           <div className="flex items-start justify-between">
             <div className="flex-1 mr-3">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-red-100 block mb-0.5">
-                SEDUC-PA &bull; Ficha Detalhada da Unidade
+                SEDUC-PA &bull; Ficha da Unidade
               </span>
               {loading ? (
                 <div className="h-6 w-48 bg-white/20 rounded animate-pulse" />
@@ -204,10 +183,20 @@ export default function SchoolDrawer({ codigoEscola, onClose }: SchoolDrawerProp
                   {escola?.nome_escola || "Carregando..."}
                 </h2>
               )}
-              {escola?.regiao_integracao && !loading && (
-                <p className="text-[11px] text-red-200 mt-0.5 font-medium">
-                  RI: {escola.regiao_integracao}
-                </p>
+              {/* Etapa e RI como sub-contexto */}
+              {!loading && escola && (
+                <div className="flex flex-wrap items-center gap-2 mt-1">
+                  {escola.etapa_ensino && (
+                    <span className="text-[11px] bg-white/20 text-white px-2 py-0.5 rounded font-medium">
+                      {etapaFormatada}
+                    </span>
+                  )}
+                  {escola.regiao_integracao && (
+                    <span className="text-[11px] text-red-200 font-medium">
+                      RI: {escola.regiao_integracao}
+                    </span>
+                  )}
+                </div>
               )}
             </div>
             <button
@@ -244,7 +233,6 @@ export default function SchoolDrawer({ codigoEscola, onClose }: SchoolDrawerProp
                 />
                 <InfoItem label="MUNICÍPIO" value={escola.municipio} icon={<MapPin className="w-3 h-3 text-[#A71B2B]" />} />
                 <InfoItem label="DRE / REGIONAL" value={escola.regional_dre || "—"} />
-                {/* REGIÃO DE INTEGRAÇÃO */}
                 <InfoItem
                   label="REGIÃO DE INTEGRAÇÃO (RI)"
                   value={escola.regiao_integracao || "—"}
@@ -252,10 +240,7 @@ export default function SchoolDrawer({ codigoEscola, onClose }: SchoolDrawerProp
                 />
                 <InfoItem label="LOCALIZAÇÃO" value={escola.localizacao || "—"} />
                 <InfoItem label="REDE" value={escola.rede} />
-                <InfoItem
-                  label="ESCOLA INDÍGENA"
-                  value={escola.escola_indigena ? "Sim" : "Não"}
-                />
+                <InfoItem label="ESCOLA INDÍGENA" value={escola.escola_indigena ? "Sim" : "Não"} />
                 <InfoItem
                   label="ETAPA REGULAR"
                   customContent={<EtapaBadge etapa={etapaFormatada} />}
@@ -286,7 +271,7 @@ export default function SchoolDrawer({ codigoEscola, onClose }: SchoolDrawerProp
               </div>
             </section>
 
-            {/* Bloco de Bonificações — Card Visual Explicativo */}
+            {/* Bloco de Bonificações */}
             <section>
               <h3 className="text-xs font-bold uppercase tracking-wider text-[#6C757D] mb-2.5 flex items-center gap-1.5">
                 <Award className="w-4 h-4 text-[#A71B2B]" />
@@ -315,12 +300,14 @@ export default function SchoolDrawer({ codigoEscola, onClose }: SchoolDrawerProp
                   ri={escola.regiao_integracao}
                 />
 
-                {/* Teto máximo acumulado */}
+                {/* Barra total acumulado */}
                 <div className="mt-3 pt-2.5 border-t border-[#E2E8F0]">
                   <div className="flex justify-between items-center mb-1.5">
                     <span className="text-[11px] font-bold text-[#1D1D1B]">Total Acumulado</span>
                     <span className="text-[11px] font-bold text-[#A71B2B]">
-                      {totalAcumulado.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 })} de {LIMITE_BONUS.toLocaleString("pt-BR", { minimumFractionDigits: 1 })} salários ({pctTotal}%)
+                      {totalAcumulado.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 })}
+                      {" "}de{" "}
+                      {LIMITE_BONUS.toLocaleString("pt-BR", { minimumFractionDigits: 1 })} salários ({pctTotal}%)
                     </span>
                   </div>
                   <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -349,12 +336,12 @@ export default function SchoolDrawer({ codigoEscola, onClose }: SchoolDrawerProp
                 </span>
               </h3>
               <div className="space-y-3.5 p-4 bg-[#F8F9FA] rounded-md border border-[#E2E8F0]">
-                <BonusBar label="Bônus Corpo Docente" value={escola.bonus_professor} max={LIMITE_BONUS} />
-                <BonusBar label="Bônus Administrativo" value={escola.bonus_administrativo} max={LIMITE_BONUS} />
+                <BonusBar label="Bônus Corpo Docente" value={escola.bonus_professor} />
+                <BonusBar label="Bônus Administrativo" value={escola.bonus_administrativo} />
               </div>
             </section>
 
-            {/* EJA / AEE */}
+            {/* EJA / AEE — apenas se houver dados */}
             {(escola.bonus_eja_iniciais !== null ||
               escola.bonus_eja_finais !== null ||
               escola.bonus_eja_medio !== null ||
@@ -373,7 +360,7 @@ export default function SchoolDrawer({ codigoEscola, onClose }: SchoolDrawerProp
               </section>
             )}
 
-            {/* Rodapé da Ficha */}
+            {/* Rodapé */}
             <div className="pt-2 text-[11px] text-[#6C757D] border-t border-gray-100 flex items-center justify-between">
               <span>Fonte: Base de Dados SEDUC-PA</span>
               <span>Exercício 2025</span>
@@ -389,15 +376,10 @@ export default function SchoolDrawer({ codigoEscola, onClose }: SchoolDrawerProp
   );
 }
 
+// ── Sub-componentes ────────────────────────────────────────────────────────
+
 function InfoItem({
-  label,
-  value,
-  mono,
-  badge,
-  badgeColor,
-  icon,
-  customContent,
-  highlight,
+  label, value, mono, badge, badgeColor, icon, customContent, highlight,
 }: {
   label: string;
   value?: string;
@@ -414,11 +396,9 @@ function InfoItem({
       {customContent ? (
         <div className="mt-0.5">{customContent}</div>
       ) : badge ? (
-        <span
-          className={`inline-flex items-center px-2 py-0.5 text-xs font-bold rounded ${
-            badgeColor === "green" ? "bg-green-100 text-[#15803D]" : "bg-red-100 text-[#9E0018]"
-          }`}
-        >
+        <span className={`inline-flex items-center px-2 py-0.5 text-xs font-bold rounded ${
+          badgeColor === "green" ? "bg-green-100 text-[#15803D]" : "bg-red-100 text-[#9E0018]"
+        }`}>
           {value}
         </span>
       ) : (
@@ -432,12 +412,7 @@ function InfoItem({
 }
 
 function MetricCard({
-  label,
-  value,
-  highlight,
-  danger,
-  amber,
-  subtitle,
+  label, value, highlight, danger, amber, subtitle,
 }: {
   label: string;
   value: string;
@@ -447,29 +422,19 @@ function MetricCard({
   subtitle?: string;
 }) {
   return (
-    <div
-      className={`rounded-md p-2.5 text-center border ${
-        highlight
-          ? "bg-green-50 border-green-200"
-          : danger
-          ? "bg-red-50 border-red-200"
-          : amber
-          ? "bg-amber-50 border-amber-200"
-          : "bg-[#F8F9FA] border-[#E2E8F0]"
-      }`}
-    >
+    <div className={`rounded-md p-2.5 text-center border ${
+      highlight ? "bg-green-50 border-green-200"
+      : danger ? "bg-red-50 border-red-200"
+      : amber ? "bg-amber-50 border-amber-200"
+      : "bg-[#F8F9FA] border-[#E2E8F0]"
+    }`}>
       <p className="text-[10px] uppercase font-semibold text-[#6C757D] mb-0.5">{label}</p>
-      <p
-        className={`text-lg font-extrabold ${
-          highlight
-            ? "text-[#15803D]"
-            : danger
-            ? "text-[#9E0018]"
-            : amber
-            ? "text-[#B45309]"
-            : "text-[#1D1D1B]"
-        }`}
-      >
+      <p className={`text-lg font-extrabold ${
+        highlight ? "text-[#15803D]"
+        : danger ? "text-[#9E0018]"
+        : amber ? "text-[#B45309]"
+        : "text-[#1D1D1B]"
+      }`}>
         {value}
       </p>
       {subtitle && (

@@ -9,7 +9,8 @@ import { EtapaBadge } from "./TabPublicadas";
 interface TabNaoPublicadasProps {
   data: Escola[];
   loading: boolean;
-  onSelectEscola: (codigo: string) => void;
+  /** codigo_escola + etapa da linha clicada para contexto do drawer */
+  onSelectEscola: (codigo: string, etapa: string | null) => void;
   onClearFilters?: () => void;
   pagination?: {
     page: number;
@@ -163,13 +164,13 @@ export default function TabNaoPublicadas({
                 return (
                   <tr
                     key={`${escola.codigo_escola}-${idx}`}
-                    onClick={() => onSelectEscola(escola.codigo_escola)}
+                    onClick={() => onSelectEscola(escola.codigo_escola, escola.etapa_ensino ?? null)}
                     className="hover:bg-slate-50/60 transition-colors cursor-pointer"
                     tabIndex={0}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
-                        onSelectEscola(escola.codigo_escola);
+                        onSelectEscola(escola.codigo_escola, escola.etapa_ensino ?? null);
                       }
                     }}
                   >
@@ -245,7 +246,7 @@ export default function TabNaoPublicadas({
             return (
               <div
                 key={`mob-np-${escola.codigo_escola}-${idx}`}
-                onClick={() => onSelectEscola(escola.codigo_escola)}
+                onClick={() => onSelectEscola(escola.codigo_escola, escola.etapa_ensino ?? null)}
                 className="p-4 hover:bg-slate-50/60 active:bg-slate-100 transition-colors cursor-pointer space-y-2.5"
               >
                 <div className="flex items-start justify-between gap-2">

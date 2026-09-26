@@ -18,6 +18,113 @@ const DRE_CORRECTIONS: Record<string, string> = {
   "UTOCANTINS": "TOCANTINS",
 };
 
+/** As 12 Regiões de Integração oficiais do Estado do Pará */
+export const CANONICAL_RIS = [
+  "ARAGUAIA",
+  "BAIXO AMAZONAS",
+  "CARAJÁS",
+  "GUAJARÁ",
+  "GUAMÁ",
+  "LAGO DE TUCURUÍ",
+  "MARAJÓ",
+  "RIO CAETÉ",
+  "RIO CAPIM",
+  "TAPAJÓS",
+  "TOCANTINS",
+  "XINGU",
+];
+
+const CANONICAL_RIS_SET = new Set(CANONICAL_RIS);
+
+/** Mapa de correção canônica das 12 Regiões de Integração do Pará (inclui ruídos de OCR e variantes sem acento) */
+const RI_CANONICAL_MAP: Record<string, string> = {
+  // GUAJARÁ
+  "GUAJARA": "GUAJARÁ",
+  "GUAJARÁ": "GUAJARÁ",
+  "OG PUAARJAARA": "GUAJARÁ",
+  "OG PUAARJARÁ": "GUAJARÁ",
+  "OG PUAARJARA": "GUAJARÁ",
+  "OG PUAARJA": "GUAJARÁ",
+  "METROPOLITANA": "GUAJARÁ",
+
+  // RIO CAPIM
+  "RIO CAPIM": "RIO CAPIM",
+  "OG CUAAMPIAM": "RIO CAPIM",
+  "OG CUAAMPIAN": "RIO CAPIM",
+  "OG CUAAMPIAO": "RIO CAPIM",
+
+  // GUAMÁ
+  "GUAMA": "GUAMÁ",
+  "GUAMÁ": "GUAMÁ",
+  "GOUDAIVMELAAS": "GUAMÁ",
+  "GOUDAIVMELAS": "GUAMÁ",
+  "PGAURAMA": "GUAMÁ",
+  "PGAURAAMA": "GUAMÁ",
+  "TGAUAMA": "GUAMÁ",
+
+  // ARAGUAIA
+  "ARAGUAIA": "ARAGUAIA",
+  "AAGRAUGAUIAAIA": "ARAGUAIA",
+  "ABRAARGREUIARAIAS": "ARAGUAIA",
+  "ARAGUAIIA": "ARAGUAIA",
+  "ARAGAUAIA": "ARAGUAIA",
+
+  // MARAJÓ
+  "MARAJO": "MARAJÓ",
+  "MARAJÓ": "MARAJÓ",
+  "AMRIARAJO": "MARAJÓ",
+  "AMRIARAJÓ": "MARAJÓ",
+  "RMARAIRAJO": "MARAJÓ",
+
+  // CARAJÁS
+  "CARAJAS": "CARAJÁS",
+  "CARAJÁS": "CARAJÁS",
+
+  // BAIXO AMAZONAS
+  "BAIXO AMAZONAS": "BAIXO AMAZONAS",
+
+  // TAPAJÓS
+  "TAPAJOS": "TAPAJÓS",
+  "TAPAJÓS": "TAPAJÓS",
+
+  // TOCANTINS
+  "TOCANTINS": "TOCANTINS",
+  "UTOCANTINS": "TOCANTINS",
+
+  // LAGO DE TUCURUÍ
+  "LAGO TUCURUI": "LAGO DE TUCURUÍ",
+  "LAGO DE TUCURUI": "LAGO DE TUCURUÍ",
+  "LAGO DE TUCURUÍ": "LAGO DE TUCURUÍ",
+
+  // RIO CAETÉ
+  "RIO CAETE": "RIO CAETÉ",
+  "RIO CAETÉ": "RIO CAETÉ",
+
+  // XINGU
+  "XINGU": "XINGU",
+};
+
+/** Normaliza RI: valida estritamente contra as 12 Regiões Oficiais do Pará */
+function sanitizeRI(raw: string | null | undefined): string | null {
+  if (!raw || typeof raw !== "string") return null;
+  const name = raw.trim().toUpperCase();
+  if (!name || name === "—" || name === "-" || name.length < 3) return null;
+
+  if (CANONICAL_RIS_SET.has(name)) return name;
+
+  const stripped = name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Z0-9 ]/g, "")
+    .trim();
+
+  if (RI_CANONICAL_MAP[stripped]) {
+    return RI_CANONICAL_MAP[stripped];
+  }
+
+  return null;
+}
+
 /**
  * Normaliza o nome de uma DRE ou Município:
  * 1. TRIM + UPPER
@@ -133,16 +240,21 @@ export async function GET() {
       dreMunicipios[d].sort((a, b) => a.localeCompare(b, "pt-BR"));
     }
 
+    // Sanitiza e deduplica Regiões de Integração — aplica correções canônicas no nível da API
+    const riSet = new Set<string>();
+    for (const r of regioesResult.rows) {
+      const cleaned = sanitizeRI(r.regiao_integracao);
+      if (cleaned) riSet.add(cleaned);
+    }
+    const riSorted = [...riSet].sort((a, b) => a.localeCompare(b, "pt-BR"));
+
     return NextResponse.json({
       dres: dresSorted,
       municipios: munSorted,
       redes: redes.rows.map((r) => r.rede).filter(Boolean),
       localizacoes: localizacoes.rows.map((r) => r.localizacao).filter(Boolean),
       dreMunicipios,
-      regioes_integracao: regioesResult.rows
-        .map((r) => r.regiao_integracao)
-        .filter(Boolean)
-        .sort((a: string, b: string) => a.localeCompare(b, "pt-BR")),
+      regioes_integracao: riSorted,
     });
   } catch (error) {
     console.error("Filtros error:", error);
