@@ -40,6 +40,7 @@ export default function Home() {
   const [municipio, setMunicipio] = useState("");
   const [rede, setRede] = useState("");
   const [localizacao, setLocalizacao] = useState("");
+  const [regiaoIntegracao, setRegiaoIntegracao] = useState("");
 
   // Table & pagination state
   const [escolas, setEscolas] = useState<Escola[]>([]);
@@ -102,6 +103,7 @@ export default function Home() {
       if (municipio) params.set("municipio", municipio);
       if (rede) params.set("rede", rede);
       if (localizacao) params.set("localizacao", localizacao);
+      if (regiaoIntegracao) params.set("regiao_integracao", regiaoIntegracao);
 
       if (activeTab === "eja_aee") {
         const res = await fetch(`/api/eja-aee?${params.toString()}`);
@@ -126,7 +128,7 @@ export default function Home() {
     } finally {
       setTableLoading(false);
     }
-  }, [activeTab, page, pageSize, search, dre, municipio, rede, localizacao]);
+  }, [activeTab, page, pageSize, search, dre, municipio, rede, localizacao, regiaoIntegracao]);
 
   useEffect(() => {
     fetchData();
@@ -153,6 +155,10 @@ export default function Home() {
     setLocalizacao(v);
     setPage(1);
   };
+  const handleRegiaoIntegracaoChange = (v: string) => {
+    setRegiaoIntegracao(v);
+    setPage(1);
+  };
 
   const handleClearFilters = () => {
     setSearch("");
@@ -160,6 +166,7 @@ export default function Home() {
     setMunicipio("");
     setRede("");
     setLocalizacao("");
+    setRegiaoIntegracao("");
     setPage(1);
   };
 
@@ -184,6 +191,7 @@ export default function Home() {
       if (municipio) params.set("municipio", municipio);
       if (rede) params.set("rede", rede);
       if (localizacao) params.set("localizacao", localizacao);
+      if (regiaoIntegracao) params.set("regiao_integracao", regiaoIntegracao);
 
       let rowsToExport: Record<string, any>[] = [];
       let sheetName = "Dados";
@@ -234,6 +242,11 @@ export default function Home() {
             "Fluxo": e.fluxo !== null ? Number(e.fluxo) : "—",
             "Bônus Professor": e.bonus_professor !== null ? Number(e.bonus_professor) : "—",
             "Bônus Administrativo": e.bonus_administrativo !== null ? Number(e.bonus_administrativo) : "—",
+            "Região de Integração (RI)": e.regiao_integracao || "—",
+            "14º Salário (Meta)": e.atingiu_meta !== null ? (metaAtingida ? "SIM" : "NÃO") : "—",
+            "15º Salário (Crescimento)": (Number(e.ponto_crescimento) || 0) > 0 ? "SIM" : "NÃO",
+            "16º Salário (Destaque RI)": e.elegivel_16_salario ? "SIM" : "NÃO",
+            "Motivo 16º Salário": e.motivo_16_salario || "—",
             "Bônus EJA Iniciais": e.bonus_eja_iniciais !== null ? Number(e.bonus_eja_iniciais) : "—",
             "Bônus EJA Finais": e.bonus_eja_finais !== null ? Number(e.bonus_eja_finais) : "—",
             "Bônus EJA Médio": e.bonus_eja_medio !== null ? Number(e.bonus_eja_medio) : "—",
@@ -309,6 +322,8 @@ export default function Home() {
           onRedeChange={handleRedeChange}
           localizacao={localizacao}
           onLocalizacaoChange={handleLocalizacaoChange}
+          regiaoIntegracao={regiaoIntegracao}
+          onRegiaoIntegracaoChange={handleRegiaoIntegracaoChange}
           onExport={handleExport}
           exporting={exporting}
           onClearFilters={handleClearFilters}

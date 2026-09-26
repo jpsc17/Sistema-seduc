@@ -32,7 +32,7 @@ function renderValue(val: number | string | null | undefined) {
   return formatted;
 }
 
-/** Renderiza valor de bônus financeiro com teto e percentual */
+/** Renderiza valor de bônus financeiro com teto, percentual e mini barra */
 function renderBonusCell(val: number | null | undefined) {
   if (val === null || val === undefined) {
     return <span className="text-slate-300 font-normal">—</span>;
@@ -47,11 +47,24 @@ function renderBonusCell(val: number | null | undefined) {
     maximumFractionDigits: 2,
   });
 
+  const isTeto = valorLimitado >= LIMITE_BONUS;
+  const barColor = isTeto
+    ? "bg-amber-500"
+    : percentualAtingido >= 70
+    ? "bg-emerald-500"
+    : "bg-slate-400";
+
   return (
-    <div className="flex flex-col items-end leading-tight">
+    <div className="flex flex-col items-end leading-tight gap-1 min-w-[80px]">
       <span className="font-semibold text-slate-900">{formatted}</span>
-      <span className="text-[10px] font-medium text-amber-700 dark:text-amber-400">
-        ({percentualAtingido}% do teto)
+      <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+          style={{ width: `${percentualAtingido}%` }}
+        />
+      </div>
+      <span className="text-[9px] font-medium text-amber-700 dark:text-amber-400 leading-none">
+        {isTeto ? "100% do teto" : `${percentualAtingido}% do teto`}
       </span>
     </div>
   );
@@ -130,10 +143,16 @@ export default function TabNaoPublicadas({
                 <th className="px-4 py-3 text-left">REDE</th>
                 <th className="px-4 py-3 text-right">FLUXO</th>
                 <th className="px-4 py-3 text-right bg-amber-50/50 dark:bg-amber-950/20 border-l border-slate-200 tabular-nums font-semibold">
-                  BÔNUS DOCENTE
+                  <div className="flex flex-col items-end">
+                    <span>BÔNUS DOCENTE</span>
+                    <span className="text-[9px] font-normal text-amber-700/70 tracking-normal">Teto: 3,5 salários</span>
+                  </div>
                 </th>
                 <th className="px-4 py-3 text-right bg-amber-50/50 dark:bg-amber-950/20 border-l border-slate-200 tabular-nums font-semibold">
-                  BÔNUS ADMIN.
+                  <div className="flex flex-col items-end">
+                    <span>BÔNUS ADMIN.</span>
+                    <span className="text-[9px] font-normal text-amber-700/70 tracking-normal">Teto: 3,5 salários</span>
+                  </div>
                 </th>
               </tr>
             </thead>
@@ -175,6 +194,11 @@ export default function TabNaoPublicadas({
                       <span className="text-[11px] text-slate-400">
                         {escola.regional_dre || "—"}
                       </span>
+                      {escola.regiao_integracao && (
+                        <span className="text-[10px] text-indigo-500 font-medium block">
+                          RI: {escola.regiao_integracao}
+                        </span>
+                      )}
                     </td>
 
                     {/* ETAPA: text-left com badge pedagógico */}
@@ -235,6 +259,11 @@ export default function TabNaoPublicadas({
                     <p className="text-xs text-slate-500 mt-0.5">
                       {escola.municipio} &bull; {escola.regional_dre || "—"}
                     </p>
+                    {escola.regiao_integracao && (
+                      <p className="text-[10px] text-indigo-500 font-medium mt-0.5">
+                        RI: {escola.regiao_integracao}
+                      </p>
+                    )}
                   </div>
                   <span className="shrink-0 px-2 py-0.5 text-xs font-medium rounded bg-amber-50 text-amber-700 border border-amber-200/50">
                     Pendência Fluxo

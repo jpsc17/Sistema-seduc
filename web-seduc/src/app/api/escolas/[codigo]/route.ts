@@ -15,6 +15,7 @@ export async function GET(
           nome_escola,
           municipio,
           COALESCE(regional_dre, '—') AS regional_dre,
+          regiao_integracao,
           localizacao,
           escola_indigena,
           rede,
@@ -29,7 +30,9 @@ export async function GET(
           ponto_crescimento,
           fluxo,
           etapa_ensino,
-          etapa_ensino AS etapa
+          etapa_ensino AS etapa,
+          COALESCE(elegivel_16_salario, FALSE) AS elegivel_16_salario,
+          motivo_16_salario
          FROM seduc.vw_escola_resultado_completo 
          WHERE codigo_escola = $1`,
         [codigo]

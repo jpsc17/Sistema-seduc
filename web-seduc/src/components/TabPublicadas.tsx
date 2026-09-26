@@ -2,7 +2,7 @@
 
 import type { Escola } from "@/lib/types";
 import { formatBonus, formatEtapaEnsino, calcularSalarios, normalizarBonus, LIMITE_BONUS } from "@/lib/utils";
-import { ChevronRight, AlertCircle } from "lucide-react";
+import { ChevronRight, AlertCircle, Star } from "lucide-react";
 import TablePagination from "./TablePagination";
 
 interface TabPublicadasProps {
@@ -32,7 +32,7 @@ function renderValue(val: number | string | null | undefined) {
 }
 
 /** Renderiza célula de bônus financeiro com destaque percentual do teto (3,5) */
-function renderBonusCell(val: number | null | undefined, isDocente: boolean = false) {
+function renderBonusCell(val: number | null | undefined) {
   if (val === null || val === undefined) {
     return <span className="text-slate-300 font-normal">—</span>;
   }
@@ -47,12 +47,24 @@ function renderBonusCell(val: number | null | undefined, isDocente: boolean = fa
   });
 
   const isTeto = valorLimitado >= LIMITE_BONUS;
+  const barColor = isTeto
+    ? "bg-amber-500"
+    : percentualAtingido >= 70
+    ? "bg-emerald-500"
+    : "bg-slate-400";
 
   return (
-    <div className="flex flex-col items-end leading-tight">
+    <div className="flex flex-col items-end leading-tight gap-1 min-w-[80px]">
       <span className="font-semibold text-slate-900">{formatted}</span>
-      <span className="text-[10px] font-medium text-amber-700 dark:text-amber-400">
-        {isTeto && isDocente ? "16º Salário (100% do teto)" : `(${percentualAtingido}% do teto)`}
+      {/* Mini barra de progresso em relação ao teto de 3,5 */}
+      <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+          style={{ width: `${percentualAtingido}%` }}
+        />
+      </div>
+      <span className="text-[9px] font-medium text-amber-700 dark:text-amber-400 leading-none">
+        {isTeto ? "100% do teto" : `${percentualAtingido}% do teto`}
       </span>
     </div>
   );
@@ -99,6 +111,33 @@ export function EtapaBadge({ etapa }: { etapa: string }) {
   return (
     <span className="text-xs text-slate-600 font-medium whitespace-nowrap">
       {etapa}
+    </span>
+  );
+}
+
+/** Badge do 16º Salário - Destaque Regional por RI */
+export function Badge16Salario({
+  elegivel,
+  motivo,
+  ri,
+}: {
+  elegivel: boolean;
+  motivo?: string | null;
+  ri?: string | null;
+}) {
+  if (!elegivel) return null;
+  const label = ri ? `★ 16º • ${ri}` : "★ 16º Salário";
+  const title = motivo
+    ? `${motivo}${ri ? ` — ${ri}` : ""}`
+    : "Destaque Regional";
+
+  return (
+    <span
+      title={title}
+      className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-300/70 whitespace-nowrap shadow-sm"
+    >
+      <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
+      {label}
     </span>
   );
 }
@@ -168,15 +207,21 @@ export default function TabPublicadas({
               <th className="px-4 py-3 text-right">
                 <div className="flex flex-col items-end">
                   <span>CRESCIMENTO</span>
-                  <span className="text-[9px] font-medium text-blue-600 dark:text-blue-400 tracking-normal">15º Salário (1,0)</span>
+                  <span className="text-[9px] font-medium text-blue-600 dark:text-blue-400 tracking-normal">15º Salário (&gt; 0)</span>
                 </div>
               </th>
               <th className="px-4 py-3 text-right">FLUXO</th>
               <th className="px-4 py-3 text-right bg-amber-50/50 dark:bg-amber-950/20 border-l border-slate-200 tabular-nums font-semibold">
-                BÔNUS DOCENTE
+                <div className="flex flex-col items-end">
+                  <span>BÔNUS DOCENTE</span>
+                  <span className="text-[9px] font-normal text-amber-700/70 tracking-normal">Teto: 3,5 salários</span>
+                </div>
               </th>
               <th className="px-4 py-3 text-right bg-amber-50/50 dark:bg-amber-950/20 border-l border-slate-200 tabular-nums font-semibold">
-                BÔNUS ADMIN.
+                <div className="flex flex-col items-end">
+                  <span>BÔNUS ADMIN.</span>
+                  <span className="text-[9px] font-normal text-amber-700/70 tracking-normal">Teto: 3,5 salários</span>
+                </div>
               </th>
             </tr>
           </thead>
@@ -208,12 +253,21 @@ export default function TabPublicadas({
                     {escola.codigo_escola}
                   </td>
 
-                  {/* NOME DA ESCOLA: text-left */}
+                  {/* NOME DA ESCOLA: text-left — com badge 16º se aplicável */}
                   <td
-                    className="px-4 py-3 text-left font-medium text-slate-900 max-w-[280px] truncate"
+                    className="px-4 py-3 text-left font-medium text-slate-900 max-w-[280px]"
                     title={escola.nome_escola}
                   >
-                    {escola.nome_escola}
+                    <div className="truncate">{escola.nome_escola}</div>
+                    {salarios.tem16 && (
+                      <div className="mt-0.5">
+                        <Badge16Salario
+                          elegivel={salarios.tem16}
+                          motivo={escola.motivo_16_salario}
+                          ri={escola.regiao_integracao}
+                        />
+                      </div>
+                    )}
                   </td>
 
                   {/* MUNICÍPIO / DRE: text-left */}
@@ -224,6 +278,11 @@ export default function TabPublicadas({
                     <span className="text-[11px] text-slate-400">
                       {escola.regional_dre || "—"}
                     </span>
+                    {escola.regiao_integracao && (
+                      <span className="text-[10px] text-indigo-500 font-medium block">
+                        RI: {escola.regiao_integracao}
+                      </span>
+                    )}
                   </td>
 
                   {/* ETAPA: text-left, badge de distinção pedagógica */}
@@ -274,12 +333,12 @@ export default function TabPublicadas({
 
                   {/* BÔNUS DOCENTE: text-right tabular-nums font-semibold — coluna destacada */}
                   <td className="px-4 py-3 text-right tabular-nums font-semibold bg-amber-50/50 dark:bg-amber-950/20 border-l border-slate-200">
-                    {renderBonusCell(escola.bonus_professor, true)}
+                    {renderBonusCell(escola.bonus_professor)}
                   </td>
 
                   {/* BÔNUS ADMIN: text-right tabular-nums font-semibold — coluna destacada */}
                   <td className="px-4 py-3 text-right tabular-nums font-semibold bg-amber-50/50 dark:bg-amber-950/20 border-l border-slate-200">
-                    {renderBonusCell(escola.bonus_administrativo, false)}
+                    {renderBonusCell(escola.bonus_administrativo)}
                   </td>
                 </tr>
               );
@@ -313,6 +372,11 @@ export default function TabPublicadas({
                   <p className="text-xs text-slate-500 mt-0.5">
                     {escola.municipio} &bull; {escola.regional_dre || "—"}
                   </p>
+                  {escola.regiao_integracao && (
+                    <p className="text-[10px] text-indigo-500 font-medium mt-0.5">
+                      RI: {escola.regiao_integracao}
+                    </p>
+                  )}
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0">
                   {escola.atingiu_meta !== null && (
@@ -337,9 +401,11 @@ export default function TabPublicadas({
                     </span>
                   )}
                   {salarios.tem16 && (
-                    <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/50">
-                      16º Salário (100%)
-                    </span>
+                    <Badge16Salario
+                      elegivel={salarios.tem16}
+                      motivo={escola.motivo_16_salario}
+                      ri={escola.regiao_integracao}
+                    />
                   )}
                 </div>
               </div>
@@ -355,11 +421,11 @@ export default function TabPublicadas({
                 </div>
                 <div className="bg-amber-50/60 dark:bg-amber-950/20 rounded p-1.5 -m-0.5 border border-amber-200/40">
                   <span className="text-amber-800 dark:text-amber-300 block text-[10px] uppercase font-semibold">Bônus Docente</span>
-                  <span className="tabular-nums font-semibold text-slate-900">{renderBonusCell(escola.bonus_professor, true)}</span>
+                  <span className="tabular-nums font-semibold text-slate-900">{renderBonusCell(escola.bonus_professor)}</span>
                 </div>
                 <div className="bg-amber-50/60 dark:bg-amber-950/20 rounded p-1.5 -m-0.5 border border-amber-200/40">
                   <span className="text-amber-800 dark:text-amber-300 block text-[10px] uppercase font-semibold">Bônus Admin.</span>
-                  <span className="tabular-nums font-semibold text-slate-900">{renderBonusCell(escola.bonus_administrativo, false)}</span>
+                  <span className="tabular-nums font-semibold text-slate-900">{renderBonusCell(escola.bonus_administrativo)}</span>
                 </div>
               </div>
 

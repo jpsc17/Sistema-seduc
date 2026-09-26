@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, MapPin, Building2, GraduationCap, TrendingUp, Award, CheckCircle2, AlertCircle } from "lucide-react";
-import { formatBonus, formatEtapaEnsino, calcularSalarios, normalizarBonus, LIMITE_BONUS, formatBonusComTeto } from "@/lib/utils";
+import { X, MapPin, Building2, GraduationCap, TrendingUp, Award, CheckCircle2, AlertCircle, Star, XCircle } from "lucide-react";
+import { formatBonus, formatEtapaEnsino, calcularSalarios, normalizarBonus, LIMITE_BONUS } from "@/lib/utils";
 import { EtapaBadge } from "./TabPublicadas";
 
 interface SchoolDetail {
@@ -10,6 +10,7 @@ interface SchoolDetail {
   nome_escola: string;
   municipio: string;
   regional_dre: string | null;
+  regiao_integracao: string | null;
   localizacao: string | null;
   escola_indigena: boolean;
   rede: string;
@@ -24,6 +25,8 @@ interface SchoolDetail {
   ponto_crescimento: number | null;
   fluxo: number | null;
   etapa_ensino: string | null;
+  elegivel_16_salario?: boolean;
+  motivo_16_salario?: string | null;
 }
 
 interface SchoolDrawerProps {
@@ -37,6 +40,12 @@ function BonusBar({ label, value, max }: { label: string; value: number | null; 
   const { valorLimitado, percentualAtingido } = normalizarBonus(numVal);
   const isTeto = valorLimitado >= LIMITE_BONUS;
 
+  const barColor = isTeto
+    ? "#D97706"
+    : percentualAtingido >= 70
+    ? "#15803D"
+    : "#A71B2B";
+
   return (
     <div>
       <div className="flex justify-between items-center mb-1">
@@ -47,7 +56,7 @@ function BonusBar({ label, value, max }: { label: string; value: number | null; 
           </span>
           {numVal > 0 && (
             <span className="text-[10px] font-semibold text-amber-700 ml-1.5">
-              {isTeto ? "(16º Salário - 100% do teto)" : `(${percentualAtingido}% do teto)`}
+              {isTeto ? "(100% do teto)" : `(${percentualAtingido}% do teto)`}
             </span>
           )}
         </div>
@@ -57,7 +66,7 @@ function BonusBar({ label, value, max }: { label: string; value: number | null; 
           className="h-full rounded-full transition-all duration-500 ease-out"
           style={{
             width: `${pct}%`,
-            backgroundColor: numVal > 0 ? (isTeto ? "#D97706" : "#A71B2B") : "#CBD5E1",
+            backgroundColor: numVal > 0 ? barColor : "#CBD5E1",
           }}
         />
       </div>
@@ -65,20 +74,58 @@ function BonusBar({ label, value, max }: { label: string; value: number | null; 
   );
 }
 
-/** Badge de salário-bônus para o drawer */
-function SalarioBadgeDrawer({ tipo, ativo }: { tipo: "14" | "15" | "16"; ativo: boolean }) {
-  if (!ativo) return null;
+/** Card visual de salário-bônus para o drawer (14º, 15º, 16º) */
+function SalarioCard({
+  numero,
+  ativo,
+  descricao,
+  motivo,
+  ri,
+}: {
+  numero: "14" | "15" | "16";
+  ativo: boolean;
+  descricao: string;
+  motivo?: string | null;
+  ri?: string | null;
+}) {
   const configs = {
-    "14": { label: "14º Salário", icon: <CheckCircle2 className="w-3.5 h-3.5" />, bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
-    "15": { label: "15º Salário (Crescimento 1,0)", icon: <TrendingUp className="w-3.5 h-3.5" />, bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" },
-    "16": { label: "16º Salário (100% do teto)", icon: <Award className="w-3.5 h-3.5" />, bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
+    "14": {
+      icon: ativo ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <XCircle className="w-4 h-4 text-slate-300" />,
+      bg: ativo ? "bg-emerald-50 border-emerald-200" : "bg-slate-50 border-slate-200",
+      labelColor: ativo ? "text-emerald-700" : "text-slate-400",
+      badge: "14º Salário",
+    },
+    "15": {
+      icon: ativo ? <TrendingUp className="w-4 h-4 text-blue-600" /> : <XCircle className="w-4 h-4 text-slate-300" />,
+      bg: ativo ? "bg-blue-50 border-blue-200" : "bg-slate-50 border-slate-200",
+      labelColor: ativo ? "text-blue-700" : "text-slate-400",
+      badge: "15º Salário",
+    },
+    "16": {
+      icon: ativo ? <Star className="w-4 h-4 text-amber-500 fill-amber-400" /> : <XCircle className="w-4 h-4 text-slate-300" />,
+      bg: ativo ? "bg-amber-50 border-amber-200" : "bg-slate-50 border-slate-200",
+      labelColor: ativo ? "text-amber-700" : "text-slate-400",
+      badge: "16º Salário",
+    },
   };
-  const c = configs[tipo];
+
+  const c = configs[numero];
+
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-md ${c.bg} ${c.text} border ${c.border}`}>
-      {c.icon}
-      {c.label}
-    </span>
+    <div className={`flex items-start gap-2.5 p-2.5 rounded-lg border ${c.bg}`}>
+      <div className="mt-0.5 shrink-0">{c.icon}</div>
+      <div className="flex-1 min-w-0">
+        <p className={`text-[11px] font-bold ${c.labelColor}`}>{c.badge}</p>
+        <p className={`text-[11px] ${ativo ? "text-slate-700" : "text-slate-400"}`}>
+          {ativo ? descricao : `Não conquistado — ${descricao.replace("✔ ", "")}`}
+        </p>
+        {numero === "16" && ativo && motivo && (
+          <p className="text-[10px] font-semibold text-amber-600 mt-0.5">
+            {motivo}{ri ? ` — ${ri}` : ""}
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -123,6 +170,16 @@ export default function SchoolDrawer({ codigoEscola, onClose }: SchoolDrawerProp
     ? calcularSalarios(escola)
     : { tem14: false, tem15: false, tem16: false };
 
+  // Calcular total acumulado (melhor bônus disponível)
+  const totalAcumulado = Math.min(
+    Math.max(
+      Number(escola?.bonus_professor) || 0,
+      Number(escola?.bonus_administrativo) || 0
+    ),
+    LIMITE_BONUS
+  );
+  const pctTotal = Math.round((totalAcumulado / LIMITE_BONUS) * 100);
+
   return (
     <div role="dialog" aria-modal="true" aria-labelledby="drawer-title">
       {/* Overlay */}
@@ -146,6 +203,11 @@ export default function SchoolDrawer({ codigoEscola, onClose }: SchoolDrawerProp
                 <h2 id="drawer-title" className="text-base sm:text-lg font-bold leading-snug">
                   {escola?.nome_escola || "Carregando..."}
                 </h2>
+              )}
+              {escola?.regiao_integracao && !loading && (
+                <p className="text-[11px] text-red-200 mt-0.5 font-medium">
+                  RI: {escola.regiao_integracao}
+                </p>
               )}
             </div>
             <button
@@ -182,6 +244,12 @@ export default function SchoolDrawer({ codigoEscola, onClose }: SchoolDrawerProp
                 />
                 <InfoItem label="MUNICÍPIO" value={escola.municipio} icon={<MapPin className="w-3 h-3 text-[#A71B2B]" />} />
                 <InfoItem label="DRE / REGIONAL" value={escola.regional_dre || "—"} />
+                {/* REGIÃO DE INTEGRAÇÃO */}
+                <InfoItem
+                  label="REGIÃO DE INTEGRAÇÃO (RI)"
+                  value={escola.regiao_integracao || "—"}
+                  highlight={!!escola.regiao_integracao}
+                />
                 <InfoItem label="LOCALIZAÇÃO" value={escola.localizacao || "—"} />
                 <InfoItem label="REDE" value={escola.rede} />
                 <InfoItem
@@ -212,26 +280,64 @@ export default function SchoolDrawer({ codigoEscola, onClose }: SchoolDrawerProp
                 <MetricCard
                   label="CRESCIMENTO"
                   value={formatBonus(escola.ponto_crescimento)}
-                  subtitle={salarios.tem15 ? "15º Salário (1,0)" : undefined}
+                  subtitle={salarios.tem15 ? "15º Salário" : undefined}
                 />
                 <MetricCard label="TAXA FLUXO" value={formatBonus(escola.fluxo)} />
               </div>
             </section>
 
-            {/* Badges de Salário-Bônus Conquistados */}
-            {(salarios.tem14 || salarios.tem15 || salarios.tem16) && (
-              <section>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-[#6C757D] mb-2.5 flex items-center gap-1.5">
-                  <Award className="w-4 h-4 text-[#A71B2B]" />
-                  Gratificações Conquistadas
-                </h3>
-                <div className="flex flex-wrap gap-2 p-3 bg-[#F8F9FA] rounded-md border border-[#E2E8F0]">
-                  <SalarioBadgeDrawer tipo="14" ativo={salarios.tem14} />
-                  <SalarioBadgeDrawer tipo="15" ativo={salarios.tem15} />
-                  <SalarioBadgeDrawer tipo="16" ativo={salarios.tem16} />
+            {/* Bloco de Bonificações — Card Visual Explicativo */}
+            <section>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#6C757D] mb-2.5 flex items-center gap-1.5">
+                <Award className="w-4 h-4 text-[#A71B2B]" />
+                Gratificações — Escola que Transforma
+              </h3>
+              <div className="space-y-2 p-3 bg-[#F8F9FA] rounded-md border border-[#E2E8F0]">
+                <SalarioCard
+                  numero="14"
+                  ativo={salarios.tem14}
+                  descricao={salarios.tem14 ? "Atingiu a meta pactuada (IDEB)" : "Meta pactuada não atingida"}
+                />
+                <SalarioCard
+                  numero="15"
+                  ativo={salarios.tem15}
+                  descricao={salarios.tem15 ? "Registrou crescimento pedagógico positivo" : "Sem crescimento registrado"}
+                />
+                <SalarioCard
+                  numero="16"
+                  ativo={salarios.tem16}
+                  descricao={
+                    salarios.tem16
+                      ? `Destaque Regional na Região ${escola.regiao_integracao || ""}`
+                      : "Não é destaque regional na RI"
+                  }
+                  motivo={escola.motivo_16_salario}
+                  ri={escola.regiao_integracao}
+                />
+
+                {/* Teto máximo acumulado */}
+                <div className="mt-3 pt-2.5 border-t border-[#E2E8F0]">
+                  <div className="flex justify-between items-center mb-1.5">
+                    <span className="text-[11px] font-bold text-[#1D1D1B]">Total Acumulado</span>
+                    <span className="text-[11px] font-bold text-[#A71B2B]">
+                      {totalAcumulado.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 })} de {LIMITE_BONUS.toLocaleString("pt-BR", { minimumFractionDigits: 1 })} salários ({pctTotal}%)
+                    </span>
+                  </div>
+                  <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-700"
+                      style={{
+                        width: `${pctTotal}%`,
+                        backgroundColor: pctTotal >= 100 ? "#D97706" : pctTotal >= 70 ? "#15803D" : "#A71B2B",
+                      }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-1 text-right">
+                    Teto máximo legal: 3,5 salários (Lei Escola que Transforma)
+                  </p>
                 </div>
-              </section>
-            )}
+              </div>
+            </section>
 
             {/* Bônus Apurado */}
             <section>
@@ -291,6 +397,7 @@ function InfoItem({
   badgeColor,
   icon,
   customContent,
+  highlight,
 }: {
   label: string;
   value?: string;
@@ -299,9 +406,10 @@ function InfoItem({
   badgeColor?: "green" | "red";
   icon?: React.ReactNode;
   customContent?: React.ReactNode;
+  highlight?: boolean;
 }) {
   return (
-    <div className="bg-[#F8F9FA] rounded-md p-2.5 border border-[#E2E8F0]">
+    <div className={`rounded-md p-2.5 border ${highlight ? "bg-indigo-50 border-indigo-200" : "bg-[#F8F9FA] border-[#E2E8F0]"}`}>
       <p className="text-[10px] uppercase font-semibold text-[#6C757D] mb-0.5">{label}</p>
       {customContent ? (
         <div className="mt-0.5">{customContent}</div>
@@ -314,7 +422,7 @@ function InfoItem({
           {value}
         </span>
       ) : (
-        <p className={`text-xs font-semibold text-[#1D1D1B] flex items-center gap-1 ${mono ? "font-mono" : ""}`}>
+        <p className={`text-xs font-semibold flex items-center gap-1 ${highlight ? "text-indigo-700" : "text-[#1D1D1B]"} ${mono ? "font-mono" : ""}`}>
           {icon}
           <span className="truncate">{value}</span>
         </p>

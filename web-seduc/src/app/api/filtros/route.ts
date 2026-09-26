@@ -56,7 +56,7 @@ function sanitizeName(raw: string | null | undefined, isDre = false): string | n
 
 export async function GET() {
   try {
-    const [dres, municipios, redes, localizacoes, dreMunResult] = await Promise.all([
+    const [dres, municipios, redes, localizacoes, dreMunResult, regioesResult] = await Promise.all([
       pool.query(
         `SELECT DISTINCT UPPER(TRIM(dre)) AS regional_dre
          FROM seduc.seduc_ideb_dre
@@ -93,6 +93,13 @@ export async function GET() {
          FROM seduc.vw_escola_resultado_completo
          WHERE regional_dre IS NOT NULL AND municipio IS NOT NULL
            AND TRIM(regional_dre) != '' AND TRIM(municipio) != ''`
+      ),
+      pool.query(
+        `SELECT DISTINCT UPPER(TRIM(regiao_integracao)) AS regiao_integracao
+         FROM seduc.vw_escola_resultado_completo
+         WHERE regiao_integracao IS NOT NULL
+           AND TRIM(regiao_integracao) != ''
+         ORDER BY regiao_integracao ASC`
       ),
     ]);
 
@@ -132,6 +139,10 @@ export async function GET() {
       redes: redes.rows.map((r) => r.rede).filter(Boolean),
       localizacoes: localizacoes.rows.map((r) => r.localizacao).filter(Boolean),
       dreMunicipios,
+      regioes_integracao: regioesResult.rows
+        .map((r) => r.regiao_integracao)
+        .filter(Boolean)
+        .sort((a: string, b: string) => a.localeCompare(b, "pt-BR")),
     });
   } catch (error) {
     console.error("Filtros error:", error);

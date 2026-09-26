@@ -16,6 +16,8 @@ interface FilterBarProps {
   onRedeChange: (v: string) => void;
   localizacao: string;
   onLocalizacaoChange: (v: string) => void;
+  regiaoIntegracao: string;
+  onRegiaoIntegracaoChange: (v: string) => void;
   onExport: () => void;
   exporting?: boolean;
   onClearFilters?: () => void;
@@ -34,6 +36,8 @@ export default function FilterBar({
   onRedeChange,
   localizacao,
   onLocalizacaoChange,
+  regiaoIntegracao,
+  onRegiaoIntegracaoChange,
   onExport,
   exporting = false,
   onClearFilters,
@@ -57,13 +61,14 @@ export default function FilterBar({
   };
 
   const hasActiveFilters = Boolean(
-    search.trim() || dre || municipio || rede || localizacao
+    search.trim() || dre || municipio || rede || localizacao || regiaoIntegracao
   );
 
   const extraFiltersCount = [
     Boolean(municipio),
     Boolean(rede),
     Boolean(localizacao),
+    Boolean(regiaoIntegracao),
   ].filter(Boolean).length;
 
   const handleReset = () => {
@@ -72,6 +77,7 @@ export default function FilterBar({
     onMunicipioChange("");
     onRedeChange("");
     onLocalizacaoChange("");
+    onRegiaoIntegracaoChange("");
     if (onClearFilters) onClearFilters();
   };
 
@@ -163,9 +169,9 @@ export default function FilterBar({
         </div>
       </div>
 
-      {/* Accordion / Drawer sutil de filtros adicionais (Município, Rede, Localização) */}
+          {/* Accordion / Drawer sutil de filtros adicionais (Município, Rede, Localização, RI) */}
       {showAdvanced && (
-        <div className="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3 animate-in fade-in duration-150">
+        <div className="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 animate-in fade-in duration-150">
           {/* Município */}
           <div>
             <label htmlFor="select-municipio" className="block text-xs font-medium text-slate-500 mb-1">
@@ -227,6 +233,26 @@ export default function FilterBar({
               ))}
             </select>
           </div>
+
+          {/* Região de Integração (RI) */}
+          <div>
+            <label htmlFor="select-ri" className="block text-xs font-medium text-slate-500 mb-1">
+              Região de Integração (RI)
+            </label>
+            <select
+              id="select-ri"
+              value={regiaoIntegracao}
+              onChange={(e) => onRegiaoIntegracaoChange(e.target.value)}
+              className="w-full px-3 py-1.5 bg-indigo-50/60 border border-indigo-200 rounded-lg text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            >
+              <option value="">Todas as Regiões (RI)</option>
+              {(filtros?.regioes_integracao ?? []).map((ri) => (
+                <option key={ri} value={ri}>
+                  {ri}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       )}
 
@@ -240,6 +266,7 @@ export default function FilterBar({
             {municipio && <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-700">Município: {municipio}</span>}
             {rede && <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-700">Rede: {rede}</span>}
             {localizacao && <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-700">{localizacao}</span>}
+            {regiaoIntegracao && <span className="bg-indigo-50 text-indigo-700 border border-indigo-200/60 px-2 py-0.5 rounded">RI: {regiaoIntegracao}</span>}
           </div>
           {totalFilteredRecords !== undefined && (
             <span className="text-slate-400">

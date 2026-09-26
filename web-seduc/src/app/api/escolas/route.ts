@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
     const municipio = searchParams.get("municipio") || "";
     const rede = searchParams.get("rede") || "";
     const localizacao = searchParams.get("localizacao") || "";
+    const regiaoIntegracao = searchParams.get("regiao_integracao") || "";
     const isExport = searchParams.get("export") === "true" || searchParams.get("all") === "true";
     const page = parseInt(searchParams.get("page") || "1", 10);
     const limit = parseInt(searchParams.get("limit") || "15", 10);
@@ -63,6 +64,13 @@ export async function GET(request: NextRequest) {
       paramIdx++;
     }
 
+    // Filter by Região de Integração
+    if (regiaoIntegracao) {
+      conditions.push(`UPPER(TRIM(regiao_integracao)) = $${paramIdx}`);
+      params.push(regiaoIntegracao.toUpperCase().trim());
+      paramIdx++;
+    }
+
     const whereClause =
       conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
@@ -71,6 +79,7 @@ export async function GET(request: NextRequest) {
       nome_escola,
       municipio,
       COALESCE(regional_dre, '—') AS regional_dre,
+      regiao_integracao,
       localizacao,
       escola_indigena,
       rede,
@@ -85,7 +94,9 @@ export async function GET(request: NextRequest) {
       ponto_crescimento,
       fluxo,
       etapa_ensino,
-      etapa_ensino AS etapa
+      etapa_ensino AS etapa,
+      COALESCE(elegivel_16_salario, FALSE) AS elegivel_16_salario,
+      motivo_16_salario
     `;
 
     if (isExport) {
