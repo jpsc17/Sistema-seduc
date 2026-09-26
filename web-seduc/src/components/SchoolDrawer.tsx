@@ -70,7 +70,7 @@ function SalarioBadgeDrawer({ tipo, ativo }: { tipo: "14" | "15" | "16"; ativo: 
   if (!ativo) return null;
   const configs = {
     "14": { label: "14º Salário", icon: <CheckCircle2 className="w-3.5 h-3.5" />, bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
-    "15": { label: "15º Salário", icon: <TrendingUp className="w-3.5 h-3.5" />, bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" },
+    "15": { label: "15º Salário (Crescimento 1,0)", icon: <TrendingUp className="w-3.5 h-3.5" />, bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" },
     "16": { label: "16º Salário (100% do teto)", icon: <Award className="w-3.5 h-3.5" />, bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
   };
   const c = configs[tipo];
@@ -212,7 +212,7 @@ export default function SchoolDrawer({ codigoEscola, onClose }: SchoolDrawerProp
                 <MetricCard
                   label="CRESCIMENTO"
                   value={formatBonus(escola.ponto_crescimento)}
-                  subtitle={salarios.tem15 ? "15º Salário" : undefined}
+                  subtitle={salarios.tem15 ? "15º Salário (1,0)" : undefined}
                 />
                 <MetricCard label="TAXA FLUXO" value={formatBonus(escola.fluxo)} />
               </div>

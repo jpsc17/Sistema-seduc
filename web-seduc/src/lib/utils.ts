@@ -23,9 +23,9 @@ export function normalizarBonus(valorBonus: number | null | undefined): {
 
 /**
  * Determina quais salários-bônus a escola conquistou.
- * - 14º Salário: META = SIM
- * - 15º Salário: Crescimento > 0
- * - 16º Salário: Pontuação acumulada = 3,5 (teto)
+ * - 14º Salário: META = SIM (atingiu_meta >= 1)
+ * - 15º Salário: Atingiu pontuação máxima de 1,0 em crescimento (ponto_crescimento >= 1,0)
+ * - 16º Salário: Pontuação acumulada no teto legal de 3,5 (bonus >= 3,5)
  */
 export function calcularSalarios(escola: {
   atingiu_meta: number | null;
@@ -37,7 +37,8 @@ export function calcularSalarios(escola: {
   tem16: boolean;
 } {
   const tem14 = escola.atingiu_meta !== null && Number(escola.atingiu_meta) >= 1;
-  const tem15 = escola.ponto_crescimento !== null && Number(escola.ponto_crescimento) > 0;
+  const pontoCrescimento = Number(escola.ponto_crescimento) || 0;
+  const tem15 = escola.ponto_crescimento !== null && pontoCrescimento >= 1.0;
   const bonusVal = Number(escola.bonus_professor) || 0;
   const tem16 = bonusVal >= LIMITE_BONUS;
   return { tem14, tem15, tem16 };

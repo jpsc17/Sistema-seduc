@@ -168,7 +168,7 @@ export default function TabPublicadas({
               <th className="px-4 py-3 text-right">
                 <div className="flex flex-col items-end">
                   <span>CRESCIMENTO</span>
-                  <span className="text-[9px] font-medium text-blue-600 dark:text-blue-400 tracking-normal">15º Salário</span>
+                  <span className="text-[9px] font-medium text-blue-600 dark:text-blue-400 tracking-normal">15º Salário (1,0)</span>
                 </div>
               </th>
               <th className="px-4 py-3 text-right">FLUXO</th>
