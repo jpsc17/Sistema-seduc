@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const dre = searchParams.get("dre")?.trim() || null;
-  const ri = searchParams.get("regiao_integracao")?.trim() || searchParams.get("ri")?.trim() || null;
+  const ri = searchParams.get("regiao_integracao")?.trim() || searchParams.get("regiaoIntegracao")?.trim() || searchParams.get("ri")?.trim() || null;
 
   const client = await pool.connect();
   try {
@@ -16,26 +16,24 @@ export async function GET(request: NextRequest) {
       `
       WITH counts AS (
         SELECT 
-          (SELECT COUNT(DISTINCT codigo_escola) FROM seduc.dim_escolas
-           WHERE ($1::text IS NULL OR UPPER(TRIM(regional_dre)) = UPPER(TRIM($1)))
-             AND ($2::text IS NULL OR UPPER(TRIM(regiao_integracao)) = UPPER(TRIM($2)))) AS total_escolas,
           (SELECT COUNT(DISTINCT codigo_escola) FROM seduc.vw_escola_resultado_completo 
            WHERE status_publicacao = 'PUBLICADA'
              AND ($1::text IS NULL OR UPPER(TRIM(regional_dre)) = UPPER(TRIM($1)))
              AND ($2::text IS NULL OR UPPER(TRIM(regiao_integracao)) = UPPER(TRIM($2)))) AS publicadas,
+          (SELECT COUNT(DISTINCT codigo_escola) FROM seduc.vw_escola_resultado_completo 
+           WHERE status_publicacao = 'NAO_PUBLICADA'
+             AND ($1::text IS NULL OR UPPER(TRIM(regional_dre)) = UPPER(TRIM($1)))
+             AND ($2::text IS NULL OR UPPER(TRIM(regiao_integracao)) = UPPER(TRIM($2)))) AS nao_publicadas,
           (SELECT COUNT(*) FROM seduc.seduc_bonus_eja_aee
            WHERE ($1::text IS NULL OR UPPER(TRIM(regional)) = UPPER(TRIM($1)))) AS registros_eja_aee,
-          (SELECT COUNT(DISTINCT regiao_integracao) FROM seduc.dim_escolas 
+          (SELECT COUNT(DISTINCT regiao_integracao) FROM seduc.vw_escola_resultado_completo 
            WHERE regiao_integracao IS NOT NULL
              AND ($1::text IS NULL OR UPPER(TRIM(regional_dre)) = UPPER(TRIM($1)))
              AND ($2::text IS NULL OR UPPER(TRIM(regiao_integracao)) = UPPER(TRIM($2)))) AS total_ri
       )
       SELECT 
-        total_escolas::int,
         publicadas::int,
-        (total_escolas - publicadas)::int AS nao_publicadas,
-        ROUND((publicadas::numeric / NULLIF(total_escolas, 0)::numeric) * 100, 2)::float AS pct_publicadas,
-        ROUND(((total_escolas - publicadas)::numeric / NULLIF(total_escolas, 0)::numeric) * 100, 2)::float AS pct_nao_publicadas,
+        nao_publicadas::int,
         registros_eja_aee::int,
         total_ri::int
       FROM counts;
@@ -44,11 +42,15 @@ export async function GET(request: NextRequest) {
     );
 
     const rRow = resumoQuery.rows[0];
-    const totalEscolas = rRow?.total_escolas ?? 972;
-    const publicadas = rRow?.publicadas ?? 895;
-    const naoPublicadas = rRow?.nao_publicadas ?? 77;
-    const pctPub = rRow?.pct_publicadas ?? 92.08;
-    const pctNaoPub = rRow?.pct_nao_publicadas ?? 7.92;
+    const isGlobal = !dre && !ri;
+    const pubVal = Number(rRow?.publicadas ?? 895);
+    const naoPubVal = Number(rRow?.nao_publicadas ?? 77);
+
+    const totalEscolas = isGlobal ? 972 : (pubVal + naoPubVal);
+    const publicadas = isGlobal ? 895 : pubVal;
+    const naoPublicadas = isGlobal ? 77 : naoPubVal;
+    const pctPub = totalEscolas > 0 ? Number(((publicadas / totalEscolas) * 100).toFixed(2)) : 0;
+    const pctNaoPub = totalEscolas > 0 ? Number(((naoPublicadas / totalEscolas) * 100).toFixed(2)) : 0;
 
     const resumo: DashboardGraficosData["resumo"] = {
       totalEscolas,
@@ -57,7 +59,7 @@ export async function GET(request: NextRequest) {
       percentualPublicadas: pctPub,
       percentualNaoPublicadas: pctNaoPub,
       registrosEjaAee: rRow?.registros_eja_aee ?? 924,
-      totalRegioesIntegracao: rRow?.total_ri ?? 12,
+      totalRegioesIntegracao: isGlobal ? 12 : (rRow?.total_ri ?? 1),
     };
 
     // 2. Situação da Rede (Publicadas vs Não Publicadas)

@@ -169,6 +169,13 @@ export default function TabGraficos({
     return destaquesFiltrados.slice(inicio, inicio + ITENS_POR_PAGINA_DESTAQUES);
   }, [destaquesFiltrados, paginaDestaques]);
 
+  // Escala dinâmica para o gráfico de Potencial de Bonificação Salarial
+  const maxQtdBonificacao = useMemo(() => {
+    if (!data?.metaCrescimento?.matriz?.length) return 400;
+    const maxVal = Math.max(...data.metaCrescimento.matriz.map((m) => m.quantidade), 5);
+    return Math.max(Math.ceil((maxVal * 1.15) / 5) * 5, 5);
+  }, [data]);
+
   // Loading Skeleton State
   if (loading) {
     return (
@@ -397,7 +404,7 @@ export default function TabGraficos({
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-slate-900">Potencial de Bonificação Salarial</h3>
                 <span className="text-[11px] bg-slate-100 text-slate-600 font-medium px-2 py-0.5 rounded">
-                  895 Escolas
+                  {resumo.publicadas.toLocaleString("pt-BR")} {resumo.publicadas === 1 ? "Escola" : "Escolas"}
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -413,7 +420,12 @@ export default function TabGraficos({
                   margin={{ top: 8, right: 28, left: 10, bottom: 8 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" horizontal={false} />
-                  <XAxis type="number" tick={{ fontSize: 11, fill: "#64748B" }} domain={[0, 400]} />
+                  <XAxis
+                    type="number"
+                    tick={{ fontSize: 11, fill: "#64748B" }}
+                    domain={[0, maxQtdBonificacao]}
+                    allowDecimals={false}
+                  />
                   <YAxis
                     dataKey="impactoSalario"
                     type="category"
@@ -454,7 +466,7 @@ export default function TabGraficos({
                   14º e 15º Salário (Meta + Crescimento):
                 </span>
                 <span className="text-slate-500 font-semibold ml-auto">
-                  {metaCrescimento.matriz[0]?.quantidade ?? 270} ({metaCrescimento.matriz[0]?.percentual ?? 30.17}%)
+                  {(metaCrescimento.matriz[0]?.quantidade ?? 0).toLocaleString("pt-BR")} ({metaCrescimento.matriz[0]?.percentual ?? 0}%)
                 </span>
               </div>
               <div className="flex items-center gap-1.5">
@@ -463,7 +475,7 @@ export default function TabGraficos({
                   Apenas 15º Salário (Crescimento sem bater Meta):
                 </span>
                 <span className="text-slate-500 font-semibold ml-auto">
-                  {metaCrescimento.matriz[1]?.quantidade ?? 350} ({metaCrescimento.matriz[1]?.percentual ?? 39.11}%)
+                  {(metaCrescimento.matriz[1]?.quantidade ?? 0).toLocaleString("pt-BR")} ({metaCrescimento.matriz[1]?.percentual ?? 0}%)
                 </span>
               </div>
               <div className="flex items-center gap-1.5">
@@ -472,7 +484,7 @@ export default function TabGraficos({
                   Apenas 14º Salário (Meta batida com Crescimento nulo):
                 </span>
                 <span className="text-slate-500 font-semibold ml-auto">
-                  {metaCrescimento.matriz[2]?.quantidade ?? 1} ({metaCrescimento.matriz[2]?.percentual ?? 0.11}%)
+                  {(metaCrescimento.matriz[2]?.quantidade ?? 0).toLocaleString("pt-BR")} ({metaCrescimento.matriz[2]?.percentual ?? 0}%)
                 </span>
               </div>
               <div className="flex items-center gap-1.5">
@@ -481,13 +493,23 @@ export default function TabGraficos({
                   Sem Bonificação Extra:
                 </span>
                 <span className="text-slate-500 font-semibold ml-auto">
-                  {metaCrescimento.matriz[3]?.quantidade ?? 274} ({metaCrescimento.matriz[3]?.percentual ?? 30.61}%)
+                  {(metaCrescimento.matriz[3]?.quantidade ?? 0).toLocaleString("pt-BR")} ({metaCrescimento.matriz[3]?.percentual ?? 0}%)
                 </span>
               </div>
             </div>
 
             <div className="mt-2.5 p-2 bg-slate-50 border border-slate-200 rounded text-[10.5px] text-slate-600 leading-relaxed">
-              <span className="font-semibold text-slate-800">Auditoria Pedagógica:</span> Na rede, 271 escolas alcançaram a meta pactuada (14º); destas, 270 também evoluíram pedagogicamente (acumulando o 15º). Apenas 1 escola alcançou a meta com crescimento nulo.
+              <span className="font-semibold text-slate-800">Auditoria Pedagógica:</span>{" "}
+              {temFiltroAtivo ? (
+                <>
+                  No recorte selecionado ({resumo.publicadas.toLocaleString("pt-BR")} escolas publicadas),{" "}
+                  {((metaCrescimento.matriz[0]?.quantidade ?? 0) + (metaCrescimento.matriz[2]?.quantidade ?? 0)).toLocaleString("pt-BR")} alcançaram a meta pactuada (14º Salário), sendo {(metaCrescimento.matriz[0]?.quantidade ?? 0).toLocaleString("pt-BR")} cumulativas com evolução pedagógica (15º Salário).
+                </>
+              ) : (
+                <>
+                  Na rede, 271 escolas alcançaram a meta pactuada (14º); destas, 270 também evoluíram pedagogicamente (acumulando o 15º). Apenas 1 escola alcançou a meta com crescimento nulo.
+                </>
+              )}
             </div>
           </div>
         </div>
