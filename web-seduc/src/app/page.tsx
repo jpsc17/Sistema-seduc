@@ -13,18 +13,20 @@ import TabPublicadas from "@/components/TabPublicadas";
 import TabNaoPublicadas from "@/components/TabNaoPublicadas";
 import TabEjaAee from "@/components/TabEjaAee";
 import TabIdebDre from "@/components/TabIdebDre";
+import TabGraficos from "@/components/TabGraficos";
 import SchoolDrawer from "@/components/SchoolDrawer";
 import FooterGov from "@/components/FooterGov";
 import type { Escola, KpiData, FiltrosData } from "@/lib/types";
-import { School, AlertCircle, BookOpen, BarChart3 } from "lucide-react";
+import { School, AlertCircle, BookOpen, BarChart3, TrendingUp } from "lucide-react";
 
-type TabType = "publicadas" | "nao_publicadas" | "eja_aee" | "ideb_dre";
+type TabType = "publicadas" | "nao_publicadas" | "eja_aee" | "ideb_dre" | "graficos";
 
 const TAB_LABELS: Record<TabType, string> = {
   publicadas: "Escolas Publicadas",
   nao_publicadas: "Não Publicadas — Pendência de Fluxo",
   eja_aee: "Bônus EJA e AEE",
   ideb_dre: "IDEB por Regional DRE",
+  graficos: "Painel Analítico — Gráficos",
 };
 
 export default function Home() {
@@ -90,9 +92,9 @@ export default function Home() {
     loadFiltros();
   }, []);
 
-  // Fetch Escolas / EJA (IDEB tab gerencia seu próprio fetch)
+  // Fetch Escolas / EJA (IDEB e Gráficos gerenciam suas próprias buscas)
   const fetchData = useCallback(async () => {
-    if (activeTab === "ideb_dre") return;
+    if (activeTab === "ideb_dre" || activeTab === "graficos") return;
     setTableLoading(true);
     try {
       const params = new URLSearchParams();
@@ -306,8 +308,8 @@ export default function Home() {
         {/* Breadcrumb Indicador de Localização */}
         <Breadcrumb currentTabName={TAB_LABELS[activeTab]} />
 
-        {/* Cards de KPI Minimalistas */}
-        <KpiCards data={kpiData} loading={kpiLoading} />
+        {/* Cards de KPI Minimalistas (ocultados na aba Gráficos para evitar duplicação) */}
+        {activeTab !== "graficos" && <KpiCards data={kpiData} loading={kpiLoading} />}
 
         {/* Barra de Filtros e Ações (Lei de Hick) */}
         <FilterBar
@@ -426,6 +428,29 @@ export default function Home() {
                 <BarChart3 className="w-4 h-4 text-slate-400" />
                 <span>IDEB por DRE</span>
               </button>
+
+              <button
+                role="tab"
+                aria-selected={activeTab === "graficos"}
+                onClick={() => handleTabChange("graficos")}
+                className={`inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === "graficos"
+                    ? "bg-white text-slate-900 shadow-xs font-semibold"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+                }`}
+              >
+                <BarChart3 className="w-4 h-4 text-slate-400" />
+                <span>Gráficos</span>
+                <span
+                  className={`text-xs px-1.5 py-0.5 rounded-md font-medium ${
+                    activeTab === "graficos"
+                      ? "bg-indigo-50 text-indigo-700"
+                      : "bg-slate-200/50 text-slate-500"
+                  }`}
+                >
+                  Executivo
+                </span>
+              </button>
             </div>
           </div>
 
@@ -462,6 +487,14 @@ export default function Home() {
 
             {activeTab === "ideb_dre" && (
               <TabIdebDre dre={dre} />
+            )}
+
+            {activeTab === "graficos" && (
+              <TabGraficos
+                dre={dre}
+                regiaoIntegracao={regiaoIntegracao}
+                onSelectEscola={(cod, etapa) => setSelectedSchool({ codigo: cod, etapa: etapa ?? null })}
+              />
             )}
           </div>
         </section>

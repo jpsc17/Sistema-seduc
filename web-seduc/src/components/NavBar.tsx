@@ -2,7 +2,7 @@
 
 interface NavBarProps {
   activeTab?: string;
-  onSelectTab?: (tab: "publicadas" | "nao_publicadas" | "eja_aee" | "ideb_dre") => void;
+  onSelectTab?: (tab: "publicadas" | "nao_publicadas" | "eja_aee" | "ideb_dre" | "graficos") => void;
 }
 
 export default function NavBar({ activeTab, onSelectTab }: NavBarProps = {}) {

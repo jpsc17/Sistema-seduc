@@ -36,32 +36,61 @@ interface SchoolDrawerProps {
   onClose: () => void;
 }
 
-function BonusBar({ label, value }: { label: string; value: number | null }) {
+function BonusBar({
+  label,
+  value,
+  variant,
+}: {
+  label: string;
+  value: number | null;
+  variant?: "docente" | "administrativo";
+}) {
   const numVal = Number(value) || 0;
   const { valorLimitado, percentualAtingido } = normalizarBonus(numVal);
   const isTeto = valorLimitado >= LIMITE_BONUS;
 
-  const barColor = isTeto ? "#D97706" : percentualAtingido >= 70 ? "#15803D" : "#A71B2B";
+  // Tons avermelhados estritamente para quando for igual a 0,0
+  // Tons neutros/corporativos ou verde institucional para valores > 0
+  const barColor =
+    numVal === 0
+      ? "#F43F5E"
+      : isTeto
+      ? "#D97706"
+      : variant === "administrativo"
+      ? "#334155"
+      : "#059669";
 
   return (
     <div>
       <div className="flex justify-between items-center mb-1">
-        <span className="text-xs font-semibold text-[#1D1D1B]">{label}</span>
+        <span className="text-xs font-semibold text-slate-800">{label}</span>
         <div className="text-right">
-          <span className="text-xs font-bold text-[#A71B2B]">{formatBonus(value)}</span>
+          <span
+            className={`text-xs font-bold ${
+              numVal > 0 ? "text-slate-900" : "text-rose-600"
+            }`}
+          >
+            {formatBonus(value)}
+          </span>
           {numVal > 0 && (
-            <span className="text-[10px] font-semibold text-amber-700 ml-1.5">
+            <span className="text-[10px] font-semibold text-slate-500 ml-1.5">
               {isTeto ? "(100% do teto)" : `(${percentualAtingido}% do teto)`}
+            </span>
+          )}
+          {numVal === 0 && (
+            <span className="text-[10px] font-medium text-rose-500 ml-1.5">
+              (Sem bonificação)
             </span>
           )}
         </div>
       </div>
-      <div className="h-2.5 bg-gray-200 rounded-full overflow-hidden">
+      <div className="h-2.5 bg-slate-200/80 rounded-full overflow-hidden">
         <div
           className="h-full rounded-full transition-all duration-500 ease-out"
           style={{
-            width: `${percentualAtingido}%`,
-            backgroundColor: numVal > 0 ? barColor : "#CBD5E1",
+            width: numVal > 0 ? `${percentualAtingido}%` : "100%",
+            backgroundColor: barColor,
+            opacity: numVal === 0 ? 0.35 : 1,
           }}
         />
       </div>
@@ -303,11 +332,25 @@ export default function SchoolDrawer({ codigoEscola, etapa, onClose }: SchoolDra
                 {/* Barra total acumulado */}
                 <div className="mt-3 pt-2.5 border-t border-[#E2E8F0]">
                   <div className="flex justify-between items-center mb-1.5">
-                    <span className="text-[11px] font-bold text-[#1D1D1B]">Total Acumulado</span>
-                    <span className="text-[11px] font-bold text-[#A71B2B]">
-                      {totalAcumulado.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 })}
-                      {" "}de{" "}
-                      {LIMITE_BONUS.toLocaleString("pt-BR", { minimumFractionDigits: 1 })} salários ({pctTotal}%)
+                    <span className="text-[11px] font-bold text-slate-800">
+                      Total Acumulado (Corpo Docente)
+                    </span>
+                    <span
+                      className={`text-[11px] font-bold ${
+                        totalAcumulado > 0
+                          ? "text-slate-900 dark:text-slate-100"
+                          : "text-rose-700"
+                      }`}
+                    >
+                      {totalAcumulado.toLocaleString("pt-BR", {
+                        minimumFractionDigits: 1,
+                        maximumFractionDigits: 2,
+                      })}{" "}
+                      de{" "}
+                      {LIMITE_BONUS.toLocaleString("pt-BR", {
+                        minimumFractionDigits: 1,
+                      })}{" "}
+                      salários ({pctTotal}%)
                     </span>
                   </div>
                   <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -315,7 +358,12 @@ export default function SchoolDrawer({ codigoEscola, etapa, onClose }: SchoolDra
                       className="h-full rounded-full transition-all duration-700"
                       style={{
                         width: `${pctTotal}%`,
-                        backgroundColor: pctTotal >= 100 ? "#D97706" : pctTotal >= 70 ? "#15803D" : "#A71B2B",
+                        backgroundColor:
+                          pctTotal >= 100
+                            ? "#D97706"
+                            : pctTotal > 0
+                            ? "#059669"
+                            : "#CBD5E1",
                       }}
                     />
                   </div>
@@ -336,8 +384,16 @@ export default function SchoolDrawer({ codigoEscola, etapa, onClose }: SchoolDra
                 </span>
               </h3>
               <div className="space-y-3.5 p-4 bg-[#F8F9FA] rounded-md border border-[#E2E8F0]">
-                <BonusBar label="Bônus Corpo Docente" value={escola.bonus_professor} />
-                <BonusBar label="Bônus Administrativo" value={escola.bonus_administrativo} />
+                <BonusBar
+                  label="Bônus Corpo Docente"
+                  value={escola.bonus_professor}
+                  variant="docente"
+                />
+                <BonusBar
+                  label="Bônus Administrativo"
+                  value={escola.bonus_administrativo}
+                  variant="administrativo"
+                />
               </div>
             </section>
 

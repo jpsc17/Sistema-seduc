@@ -7,13 +7,10 @@ export async function GET() {
     try {
       const result = await client.query(`
         SELECT
-          COUNT(DISTINCT codigo_escola) AS total_escolas,
+          (SELECT COUNT(DISTINCT codigo_escola) FROM seduc.dim_escolas) AS total_escolas,
           COUNT(DISTINCT CASE WHEN status_publicacao = 'PUBLICADA' THEN codigo_escola END) AS escolas_publicadas,
-          COUNT(DISTINCT CASE WHEN status_publicacao = 'NAO_PUBLICADA' THEN codigo_escola END) AS escolas_nao_publicadas,
-          COUNT(DISTINCT CASE WHEN bonus_eja_iniciais IS NOT NULL
-                               OR bonus_eja_finais IS NOT NULL
-                               OR bonus_eja_medio IS NOT NULL
-                               OR bonus_aee IS NOT NULL THEN codigo_escola END) AS escolas_eja_aee
+          ((SELECT COUNT(DISTINCT codigo_escola) FROM seduc.dim_escolas) - COUNT(DISTINCT CASE WHEN status_publicacao = 'PUBLICADA' THEN codigo_escola END)) AS escolas_nao_publicadas,
+          (SELECT COUNT(*) FROM seduc.seduc_bonus_eja_aee) AS escolas_eja_aee
         FROM seduc.vw_escola_resultado_completo
       `);
       return NextResponse.json(result.rows[0]);

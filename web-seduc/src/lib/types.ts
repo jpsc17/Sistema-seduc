@@ -57,3 +57,47 @@ export const REGIOES_INTEGRACAO_PARA = [
 ] as const;
 
 export type RegiaoIntegracao = typeof REGIOES_INTEGRACAO_PARA[number];
+
+export interface DashboardGraficosData {
+  resumo: {
+    totalEscolas: number;              // 972 (COUNT DISTINCT dim_escolas)
+    publicadas: number;                 // 895
+    naoPublicadas: number;              // 77
+    percentualPublicadas: number;       // ~92.08%
+    percentualNaoPublicadas: number;    // ~7.92%
+    registrosEjaAee: number;            // 924
+    totalRegioesIntegracao: number;     // 12
+  };
+  situacaoRede: Array<{ nome: string; valor: number; percentual: number }>;
+  metaCrescimento: {
+    metaSim: number;
+    metaNao: number;
+    crescimentoPositivo: number;
+    crescimentoZero: number;
+    matriz: Array<{
+      categoria: 'Meta + Crescimento' | 'Apenas Meta' | 'Apenas Crescimento' | 'Nenhum';
+      quantidade: number;
+      percentual: number;
+      impactoSalario: '14º e 15º' | '14º Salário' | '15º Salário' | 'Sem Bônus Extra';
+    }>;
+  };
+  ideb: {
+    porEtapa: Array<{ etapa: string; mediaIdeb: number }>;
+    porDre: Array<{ dre: string; etapa?: string; mediaIdeb: number; fluxo: number }>;
+    proficienciaDre: Array<{ dre: string; lp: number; mat: number }>;
+  };
+  regioesIntegracao: {
+    porRi: Array<{ ri: string; mediaIdeb: number }>;
+    destaques16: Array<{
+      ri: string;
+      etapa: string;
+      escolaMaiorIdeb: { inep: string; nome: string; valor: number };
+      escolaMaiorCrescimento: { inep: string; nome: string; valor: number };
+    }>;
+  };
+  modalidadesEPontos: {
+    ejaAeePorDre: Array<{ dre: string; total: number }>;
+    pontosPorDre: Array<{ dre: string; totalPontos: number }>;
+  };
+}
+
