@@ -14,7 +14,7 @@ export async function GET() {
         COUNT(*) FILTER (WHERE status_publicacao = 'NAO_PUBLICADA') AS nao_publicadas,
         COUNT(*) FILTER (WHERE bonus_eja_iniciais IS NOT NULL OR bonus_eja_finais IS NOT NULL OR bonus_eja_medio IS NOT NULL OR bonus_aee IS NOT NULL) AS registros_eja_aee,
         COUNT(DISTINCT regiao_integracao) AS regioes_integracao
-       FROM seduc.dim_escolas`
+               FROM seduc.vw_escola_resultado_completo`
     );
     const resumoRow = resumoRes.rows[0];
     const resumo = {
