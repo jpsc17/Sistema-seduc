@@ -31,6 +31,7 @@ import type { DashboardGraficosData } from "@/lib/types";
 interface TabGraficosProps {
   dre?: string;
   regiaoIntegracao?: string;
+  etapa?: string;
   onSelectEscola?: (codigo: string, etapa?: string | null) => void;
 }
 
@@ -40,6 +41,7 @@ type VisaoSaeb = "TOP10_MAIORES" | "TOP10_MENORES" | "TODAS";
 export default function TabGraficos({
   dre = "",
   regiaoIntegracao = "",
+  etapa = "",
   onSelectEscola,
 }: TabGraficosProps) {
   const [data, setData] = useState<DashboardGraficosData | null>(null);
@@ -65,6 +67,7 @@ export default function TabGraficos({
       const params = new URLSearchParams();
       if (dre.trim()) params.set("dre", dre.trim());
       if (regiaoIntegracao.trim()) params.set("regiao_integracao", regiaoIntegracao.trim());
+      if (etapa.trim()) params.set("etapa", etapa.trim());
 
       const url = params.toString() ? `/api/graficos?${params.toString()}` : "/api/graficos";
       const res = await fetch(url);
@@ -84,7 +87,7 @@ export default function TabGraficos({
   useEffect(() => {
     fetchData();
     setPaginaDestaques(1);
-  }, [dre, regiaoIntegracao]);
+  }, [dre, regiaoIntegracao, etapa]);
 
   // BLOCO 2: Processamento dos dados de IDEB por DRE com o seletor de etapa
   const dadosIdebDreFiltrados = useMemo(() => {

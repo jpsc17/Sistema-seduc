@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
     const rede = searchParams.get("rede") || "";
     const localizacao = searchParams.get("localizacao") || "";
     const regiaoIntegracao = searchParams.get("regiao_integracao") || "";
+    const etapa = searchParams.get("etapa") || searchParams.get("etapa_filtro") || "";
     const isExport = searchParams.get("export") === "true" || searchParams.get("all") === "true";
     const page = parseInt(searchParams.get("page") || "1", 10);
     const limit = parseInt(searchParams.get("limit") || "15", 10);
@@ -25,6 +26,23 @@ export async function GET(request: NextRequest) {
       conditions.push(`status_publicacao = 'PUBLICADA'`);
     } else if (tab === "nao_publicadas") {
       conditions.push(`status_publicacao = 'NAO_PUBLICADA'`);
+    }
+
+    // Filter by Etapa de Ensino
+    if (etapa) {
+      if (etapa.includes("Alfabetiza") || etapa.includes("1º e 2º")) {
+        conditions.push(`(etapa_ensino ILIKE '%ALFABETIZA%' OR etapa_ensino ILIKE '%1%2%' OR oferta_alfabetizacao = TRUE)`);
+      } else if (etapa.includes("Iniciais") || etapa.includes("3º ao 5º")) {
+        conditions.push(`((etapa_ensino ILIKE '%INICIAIS%' OR etapa_ensino ILIKE '%3%5%') AND etapa_ensino NOT ILIKE '%ALFABETIZA%' AND etapa_ensino NOT ILIKE '%1%2%')`);
+      } else if (etapa.includes("Finais") || etapa.includes("6º ao 9º")) {
+        conditions.push(`(etapa_ensino ILIKE '%FINAIS%' OR etapa_ensino ILIKE '%6%9%')`);
+      } else if (etapa.includes("Médio") || etapa.includes("Medio")) {
+        conditions.push(`(etapa_ensino ILIKE '%MEDIO%' OR etapa_ensino ILIKE '%MÉDIO%')`);
+      } else {
+        conditions.push(`etapa_ensino ILIKE $${paramIdx}`);
+        params.push(`%${etapa.trim()}%`);
+        paramIdx++;
+      }
     }
 
     // Search by code or name
@@ -95,14 +113,31 @@ export async function GET(request: NextRequest) {
       fluxo,
       etapa_ensino,
       etapa_ensino AS etapa,
+      COALESCE(oferta_alfabetizacao, FALSE) AS oferta_alfabetizacao,
+      COALESCE(meta_alfabetizacao_atingida, FALSE) AS meta_alfabetizacao_atingida,
       COALESCE(elegivel_16_salario, FALSE) AS elegivel_16_salario,
-      motivo_16_salario
+      motivo_16_salario,
+      COALESCE(status_premiacao_ri, 'NÃO ELEGÍVEL') AS status_premiacao_ri
+    `;
+
+    const orderClause = `
+      ORDER BY 
+        municipio ASC,
+        nome_escola ASC,
+        codigo_escola ASC,
+        CASE 
+          WHEN etapa_ensino ILIKE '%ALFABETIZA%' OR etapa_ensino ILIKE '%1%2%' THEN 1
+          WHEN etapa_ensino ILIKE '%INICIAIS%' OR etapa_ensino ILIKE '%3%5%' THEN 2
+          WHEN etapa_ensino ILIKE '%FINAIS%' OR etapa_ensino ILIKE '%6%9%' THEN 3
+          WHEN etapa_ensino ILIKE '%MÉDIO%' OR etapa_ensino ILIKE '%MEDIO%' THEN 4
+          ELSE 5
+        END ASC
     `;
 
     if (isExport) {
       const dataResult = await pool.query(
         `SELECT ${selectFields} FROM seduc.vw_escola_resultado_completo ${whereClause}
-         ORDER BY municipio, nome_escola`,
+         ${orderClause}`,
         params
       );
 
@@ -120,7 +155,7 @@ export async function GET(request: NextRequest) {
 
     const dataResult = await pool.query(
       `SELECT ${selectFields} FROM seduc.vw_escola_resultado_completo ${whereClause}
-       ORDER BY municipio, nome_escola
+       ${orderClause}
        LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
       [...params, limit, offset]
     );

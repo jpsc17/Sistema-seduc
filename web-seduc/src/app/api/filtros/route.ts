@@ -255,6 +255,12 @@ export async function GET() {
       localizacoes: localizacoes.rows.map((r) => r.localizacao).filter(Boolean),
       dreMunicipios,
       regioes_integracao: riSorted,
+      etapas: [
+        "EF Alfabetização (1º e 2º)",
+        "EF Anos Iniciais (3º ao 5º)",
+        "EF Anos Finais",
+        "Ensino Médio",
+      ],
     });
   } catch (error) {
     console.error("Filtros error:", error);

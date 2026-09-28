@@ -19,9 +19,13 @@ export interface Escola {
   fluxo: number | null;
   etapa_ensino: string | null;
   etapa?: string | null;
-  /** 16º Salário: destaque regional por RI (calculado pela view via RANK) */
+  /** Alfabetização (1º e 2º ano) - Lei Estadual nº 10.435/2024 */
+  oferta_alfabetizacao?: boolean;
+  meta_alfabetizacao_atingida?: boolean;
+  /** 16º Salário: destaque regional por RI (homologação oficial) */
   elegivel_16_salario?: boolean;
   motivo_16_salario?: string | null;
+  status_premiacao_ri?: string | null;
 }
 
 export interface KpiData {
@@ -29,6 +33,11 @@ export interface KpiData {
   escolas_publicadas: number;
   escolas_nao_publicadas: number;
   escolas_eja_aee: number;
+  // Segunda fileira de KPIs analíticos
+  total_meta_sim?: number;
+  total_crescimento_positivo?: number;
+  total_somente_fluxo?: number;
+  total_fator_zero?: number;
 }
 
 export interface FiltrosData {
@@ -37,6 +46,7 @@ export interface FiltrosData {
   redes: string[];
   localizacoes: string[];
   regioes_integracao: string[];
+  etapas?: string[];
   dreMunicipios?: Record<string, string[]>;
 }
 

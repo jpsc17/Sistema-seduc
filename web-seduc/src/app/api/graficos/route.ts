@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const dre = searchParams.get("dre")?.trim() || null;
   const ri = searchParams.get("regiao_integracao")?.trim() || searchParams.get("regiaoIntegracao")?.trim() || searchParams.get("ri")?.trim() || null;
+  const etapa = searchParams.get("etapa")?.trim() || null;
 
   const client = await pool.connect();
   try {
@@ -19,11 +20,25 @@ export async function GET(request: NextRequest) {
           (SELECT COUNT(DISTINCT codigo_escola) FROM seduc.vw_escola_resultado_completo 
            WHERE status_publicacao = 'PUBLICADA'
              AND ($1::text IS NULL OR UPPER(TRIM(regional_dre)) = UPPER(TRIM($1)))
-             AND ($2::text IS NULL OR UPPER(TRIM(regiao_integracao)) = UPPER(TRIM($2)))) AS publicadas,
+             AND ($2::text IS NULL OR UPPER(TRIM(regiao_integracao)) = UPPER(TRIM($2)))
+             AND (
+               $3::text IS NULL
+               OR (($3 ILIKE '%ALFABETIZA%' OR $3 ILIKE '%1%2%') AND (etapa_ensino ILIKE '%ALFABETIZA%' OR etapa_ensino ILIKE '%1%2%' OR oferta_alfabetizacao = TRUE))
+               OR (($3 ILIKE '%INICIAIS%' OR $3 ILIKE '%3%5%') AND (etapa_ensino ILIKE '%INICIAIS%' OR etapa_ensino ILIKE '%3%5%') AND etapa_ensino NOT ILIKE '%ALFABETIZA%' AND etapa_ensino NOT ILIKE '%1%2%')
+               OR (($3 ILIKE '%FINAIS%' OR $3 ILIKE '%6%9%') AND (etapa_ensino ILIKE '%FINAIS%' OR etapa_ensino ILIKE '%6%9%'))
+               OR (($3 ILIKE '%MEDIO%' OR $3 ILIKE '%MÉDIO%') AND (etapa_ensino ILIKE '%MEDIO%' OR etapa_ensino ILIKE '%MÉDIO%'))
+             )) AS publicadas,
           (SELECT COUNT(DISTINCT codigo_escola) FROM seduc.vw_escola_resultado_completo 
            WHERE status_publicacao = 'NAO_PUBLICADA'
              AND ($1::text IS NULL OR UPPER(TRIM(regional_dre)) = UPPER(TRIM($1)))
-             AND ($2::text IS NULL OR UPPER(TRIM(regiao_integracao)) = UPPER(TRIM($2)))) AS nao_publicadas,
+             AND ($2::text IS NULL OR UPPER(TRIM(regiao_integracao)) = UPPER(TRIM($2)))
+             AND (
+               $3::text IS NULL
+               OR (($3 ILIKE '%ALFABETIZA%' OR $3 ILIKE '%1%2%') AND (etapa_ensino ILIKE '%ALFABETIZA%' OR etapa_ensino ILIKE '%1%2%' OR oferta_alfabetizacao = TRUE))
+               OR (($3 ILIKE '%INICIAIS%' OR $3 ILIKE '%3%5%') AND (etapa_ensino ILIKE '%INICIAIS%' OR etapa_ensino ILIKE '%3%5%') AND etapa_ensino NOT ILIKE '%ALFABETIZA%' AND etapa_ensino NOT ILIKE '%1%2%')
+               OR (($3 ILIKE '%FINAIS%' OR $3 ILIKE '%6%9%') AND (etapa_ensino ILIKE '%FINAIS%' OR etapa_ensino ILIKE '%6%9%'))
+               OR (($3 ILIKE '%MEDIO%' OR $3 ILIKE '%MÉDIO%') AND (etapa_ensino ILIKE '%MEDIO%' OR etapa_ensino ILIKE '%MÉDIO%'))
+             )) AS nao_publicadas,
           (SELECT COUNT(*) FROM seduc.seduc_bonus_eja_aee
            WHERE ($1::text IS NULL OR UPPER(TRIM(regional)) = UPPER(TRIM($1)))) AS registros_eja_aee,
           (SELECT COUNT(DISTINCT regiao_integracao) FROM seduc.vw_escola_resultado_completo 
@@ -38,11 +53,11 @@ export async function GET(request: NextRequest) {
         total_ri::int
       FROM counts;
       `,
-      [dre, ri]
+      [dre, ri, etapa]
     );
 
     const rRow = resumoQuery.rows[0];
-    const isGlobal = !dre && !ri;
+    const isGlobal = !dre && !ri && !etapa;
     const pubVal = Number(rRow?.publicadas ?? 895);
     const naoPubVal = Number(rRow?.nao_publicadas ?? 77);
 
@@ -91,6 +106,13 @@ export async function GET(request: NextRequest) {
         WHERE status_publicacao = 'PUBLICADA'
           AND ($1::text IS NULL OR UPPER(TRIM(regional_dre)) = UPPER(TRIM($1)))
           AND ($2::text IS NULL OR UPPER(TRIM(regiao_integracao)) = UPPER(TRIM($2)))
+          AND (
+            $3::text IS NULL
+            OR (($3 ILIKE '%ALFABETIZA%' OR $3 ILIKE '%1%2%') AND (etapa_ensino ILIKE '%ALFABETIZA%' OR etapa_ensino ILIKE '%1%2%' OR oferta_alfabetizacao = TRUE))
+            OR (($3 ILIKE '%INICIAIS%' OR $3 ILIKE '%3%5%') AND (etapa_ensino ILIKE '%INICIAIS%' OR etapa_ensino ILIKE '%3%5%') AND etapa_ensino NOT ILIKE '%ALFABETIZA%' AND etapa_ensino NOT ILIKE '%1%2%')
+            OR (($3 ILIKE '%FINAIS%' OR $3 ILIKE '%6%9%') AND (etapa_ensino ILIKE '%FINAIS%' OR etapa_ensino ILIKE '%6%9%'))
+            OR (($3 ILIKE '%MEDIO%' OR $3 ILIKE '%MÉDIO%') AND (etapa_ensino ILIKE '%MEDIO%' OR etapa_ensino ILIKE '%MÉDIO%'))
+          )
         GROUP BY codigo_escola
       ),
       classificacao AS (
@@ -121,7 +143,7 @@ export async function GET(request: NextRequest) {
         COUNT(CASE WHEN categoria = 'Sem Bonificação Extra' THEN 1 END) AS nenhum
       FROM classificacao;
       `,
-      [dre, ri]
+      [dre, ri, etapa]
     );
 
     const mc = metaCrescQuery.rows[0];
@@ -253,6 +275,13 @@ export async function GET(request: NextRequest) {
           AND (motivo_16_salario = 'Melhor Desempenho RI' OR bonus_professor > 0)
           AND ($1::text IS NULL OR UPPER(TRIM(regional_dre)) = UPPER(TRIM($1)))
           AND ($2::text IS NULL OR UPPER(TRIM(regiao_integracao)) = UPPER(TRIM($2)))
+          AND (
+            $3::text IS NULL
+            OR (($3 ILIKE '%ALFABETIZA%' OR $3 ILIKE '%1%2%') AND (etapa_ensino ILIKE '%ALFABETIZA%' OR etapa_ensino ILIKE '%1%2%' OR oferta_alfabetizacao = TRUE))
+            OR (($3 ILIKE '%INICIAIS%' OR $3 ILIKE '%3%5%') AND (etapa_ensino ILIKE '%INICIAIS%' OR etapa_ensino ILIKE '%3%5%') AND etapa_ensino NOT ILIKE '%ALFABETIZA%' AND etapa_ensino NOT ILIKE '%1%2%')
+            OR (($3 ILIKE '%FINAIS%' OR $3 ILIKE '%6%9%') AND (etapa_ensino ILIKE '%FINAIS%' OR etapa_ensino ILIKE '%6%9%'))
+            OR (($3 ILIKE '%MEDIO%' OR $3 ILIKE '%MÉDIO%') AND (etapa_ensino ILIKE '%MEDIO%' OR etapa_ensino ILIKE '%MÉDIO%'))
+          )
       ),
       ranked_crescimento AS (
         SELECT 
@@ -270,6 +299,13 @@ export async function GET(request: NextRequest) {
           AND (motivo_16_salario = 'Maior Crescimento RI' OR ponto_crescimento > 0)
           AND ($1::text IS NULL OR UPPER(TRIM(regional_dre)) = UPPER(TRIM($1)))
           AND ($2::text IS NULL OR UPPER(TRIM(regiao_integracao)) = UPPER(TRIM($2)))
+          AND (
+            $3::text IS NULL
+            OR (($3 ILIKE '%ALFABETIZA%' OR $3 ILIKE '%1%2%') AND (etapa_ensino ILIKE '%ALFABETIZA%' OR etapa_ensino ILIKE '%1%2%' OR oferta_alfabetizacao = TRUE))
+            OR (($3 ILIKE '%INICIAIS%' OR $3 ILIKE '%3%5%') AND (etapa_ensino ILIKE '%INICIAIS%' OR etapa_ensino ILIKE '%3%5%') AND etapa_ensino NOT ILIKE '%ALFABETIZA%' AND etapa_ensino NOT ILIKE '%1%2%')
+            OR (($3 ILIKE '%FINAIS%' OR $3 ILIKE '%6%9%') AND (etapa_ensino ILIKE '%FINAIS%' OR etapa_ensino ILIKE '%6%9%'))
+            OR (($3 ILIKE '%MEDIO%' OR $3 ILIKE '%MÉDIO%') AND (etapa_ensino ILIKE '%MEDIO%' OR etapa_ensino ILIKE '%MÉDIO%'))
+          )
       )
       SELECT 
         COALESCE(d.regiao_integracao, c.regiao_integracao) AS ri,
@@ -288,7 +324,7 @@ export async function GET(request: NextRequest) {
       WHERE d.rk = 1 OR c.rk = 1
       ORDER BY ri, etapa;
       `,
-      [dre, ri]
+      [dre, ri, etapa]
     );
 
     const destaques16 = destaques16Query.rows.map((row) => ({

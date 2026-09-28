@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { X, MapPin, Building2, GraduationCap, TrendingUp, Award, Star, XCircle, CheckCircle2 } from "lucide-react";
 import { formatBonus, formatEtapaEnsino, calcularSalarios, normalizarBonus, LIMITE_BONUS } from "@/lib/utils";
 import { EtapaBadge } from "./TabPublicadas";
+import InfoTooltip, { TOOLTIP_FATOR_DOCENTE, TOOLTIP_FATOR_ADMIN } from "./InfoTooltip";
 
 interface SchoolDetail {
   codigo_escola: string;
@@ -25,8 +26,11 @@ interface SchoolDetail {
   ponto_crescimento: number | null;
   fluxo: number | null;
   etapa_ensino: string | null;
+  oferta_alfabetizacao?: boolean;
+  meta_alfabetizacao_atingida?: boolean;
   elegivel_16_salario?: boolean;
   motivo_16_salario?: string | null;
+  status_premiacao_ri?: string | null;
 }
 
 interface SchoolDrawerProps {
@@ -40,20 +44,26 @@ function BonusBar({
   label,
   value,
   variant,
+  tooltip,
+  isAlfabetizacao,
 }: {
   label: string;
   value: number | null;
   variant?: "docente" | "administrativo";
+  tooltip?: string;
+  isAlfabetizacao?: boolean;
 }) {
   const numVal = Number(value) || 0;
   const { valorLimitado, percentualAtingido } = normalizarBonus(numVal);
   const isTeto = valorLimitado >= LIMITE_BONUS;
 
-  // Tons avermelhados estritamente para quando for igual a 0,0
+  // Tons avermelhados para ausência geral; para alfabetização avaliada com 0,0, tom neutro
   // Tons neutros/corporativos ou verde institucional para valores > 0
   const barColor =
     numVal === 0
-      ? "#F43F5E"
+      ? isAlfabetizacao
+        ? "#94A3B8"
+        : "#F43F5E"
       : isTeto
       ? "#D97706"
       : variant === "administrativo"
@@ -63,11 +73,14 @@ function BonusBar({
   return (
     <div>
       <div className="flex justify-between items-center mb-1">
-        <span className="text-xs font-semibold text-slate-800">{label}</span>
+        <span className="text-xs font-semibold text-slate-800 flex items-center">
+          {label}
+          {tooltip && <InfoTooltip content={tooltip} align="left" />}
+        </span>
         <div className="text-right">
           <span
             className={`text-xs font-bold ${
-              numVal > 0 ? "text-slate-900" : "text-rose-600"
+              numVal > 0 ? "text-slate-900" : isAlfabetizacao ? "text-slate-600" : "text-rose-600"
             }`}
           >
             {formatBonus(value)}
@@ -78,8 +91,8 @@ function BonusBar({
             </span>
           )}
           {numVal === 0 && (
-            <span className="text-[10px] font-medium text-rose-500 ml-1.5">
-              (Sem bonificação)
+            <span className={`text-[10px] font-medium ml-1.5 ${isAlfabetizacao ? "text-slate-500" : "text-rose-500"}`}>
+              {isAlfabetizacao ? "(Meta não atingida)" : "(Sem bonificação)"}
             </span>
           )}
         </div>
@@ -88,9 +101,9 @@ function BonusBar({
         <div
           className="h-full rounded-full transition-all duration-500 ease-out"
           style={{
-            width: numVal > 0 ? `${percentualAtingido}%` : "100%",
+            width: numVal > 0 ? `${percentualAtingido}%` : isAlfabetizacao ? "0%" : "100%",
             backgroundColor: barColor,
-            opacity: numVal === 0 ? 0.35 : 1,
+            opacity: numVal === 0 && !isAlfabetizacao ? 0.35 : 1,
           }}
         />
       </div>
@@ -181,6 +194,10 @@ export default function SchoolDrawer({ codigoEscola, etapa, onClose }: SchoolDra
 
   if (!codigoEscola) return null;
 
+  const isAlfabetizacao =
+    escola?.oferta_alfabetizacao === true ||
+    escola?.etapa_ensino?.includes("ALFABETIZA") ||
+    escola?.etapa_ensino?.includes("1º e 2º");
   const metaAtingida = escola?.atingiu_meta !== null && Number(escola?.atingiu_meta) >= 1;
   const etapaFormatada = formatEtapaEnsino(escola?.etapa_ensino);
   const salarios = escola ? calcularSalarios(escola) : { tem14: false, tem15: false, tem16: false };
@@ -272,7 +289,7 @@ export default function SchoolDrawer({ codigoEscola, etapa, onClose }: SchoolDra
                 <InfoItem label="ESCOLA INDÍGENA" value={escola.escola_indigena ? "Sim" : "Não"} />
                 <InfoItem
                   label="ETAPA REGULAR"
-                  customContent={<EtapaBadge etapa={etapaFormatada} />}
+                  customContent={<EtapaBadge etapa={etapaFormatada} ofertaAlfabetizacao={isAlfabetizacao} />}
                 />
               </div>
             </section>
@@ -297,6 +314,26 @@ export default function SchoolDrawer({ codigoEscola, etapa, onClose }: SchoolDra
                   subtitle={salarios.tem15 ? "15º Salário" : undefined}
                 />
                 <MetricCard label="TAXA FLUXO" value={formatBonus(escola.fluxo)} />
+
+                {isAlfabetizacao && (
+                  <div className="col-span-3 p-2.5 rounded-lg border bg-teal-50/60 border-teal-200/60 text-xs flex items-center justify-between">
+                    <div>
+                      <span className="font-semibold text-teal-900 block">Ciclo de Alfabetização (1º e 2º ano):</span>
+                      <span className="text-teal-700 text-[11px]">
+                        {escola.meta_alfabetizacao_atingida
+                          ? "Meta e pontuação pactuada atingida"
+                          : "Possui oferta de turmas, mas meta/pontuação pactuada não atingida"}
+                      </span>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                      escola.meta_alfabetizacao_atingida
+                        ? "bg-emerald-100 text-emerald-800"
+                        : "bg-slate-200 text-slate-700"
+                    }`}>
+                      {escola.meta_alfabetizacao_atingida ? "Meta Atingida" : "Não Atingida (0,0)"}
+                    </span>
+                  </div>
+                )}
               </div>
             </section>
 
@@ -330,7 +367,9 @@ export default function SchoolDrawer({ codigoEscola, etapa, onClose }: SchoolDra
                   ativo={salarios.tem16}
                   descricao={
                     salarios.tem16
-                      ? `Destaque na Região de Integração ${escola.regiao_integracao || ""}`
+                      ? `Contemplada e Homologada como Destaque na Região de Integração ${escola.regiao_integracao || ""}`
+                      : escola.status_premiacao_ri === "NÃO PREMIADA - CRITÉRIO DE DESEMPATE"
+                      ? "Escola empatada na Região de Integração, mas não contemplada conforme critérios oficiais de desempate da SEDUC."
                       : "Sem destaque apurado na Região de Integração"
                   }
                   motivo={escola.motivo_16_salario}
@@ -340,8 +379,9 @@ export default function SchoolDrawer({ codigoEscola, etapa, onClose }: SchoolDra
                 {/* Barra total acumulado */}
                 <div className="mt-3 pt-2.5 border-t border-[#E2E8F0]">
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 mb-1.5">
-                    <span className="text-[11px] font-bold text-slate-800">
-                      Total Acumulado — Corpo Docente:
+                    <span className="text-[11px] font-bold text-slate-800 flex items-center">
+                      Fator Acumulado (Docente):
+                      <InfoTooltip content={TOOLTIP_FATOR_DOCENTE} align="left" />
                     </span>
                     <span
                       className={`text-[11px] font-bold ${
@@ -354,11 +394,7 @@ export default function SchoolDrawer({ codigoEscola, etapa, onClose }: SchoolDra
                         minimumFractionDigits: 1,
                         maximumFractionDigits: 2,
                       })}{" "}
-                      de{" "}
-                      {LIMITE_BONUS.toLocaleString("pt-BR", {
-                        minimumFractionDigits: 1,
-                      })}{" "}
-                      vencimentos ({pctTotal}%)
+                      de 3,5x ({pctTotal}% do teto legal)
                     </span>
                   </div>
                   <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -376,7 +412,7 @@ export default function SchoolDrawer({ codigoEscola, etapa, onClose }: SchoolDra
                     />
                   </div>
                   <p className="text-[10px] text-slate-500 mt-1 text-right">
-                    Teto legal: até 3,5 vencimentos-base (Lei Estadual nº 10.435/2024)
+                    Teto legal: até 3,5x o vencimento-base (Lei Estadual nº 10.435/2024)
                   </p>
                 </div>
 
@@ -385,28 +421,31 @@ export default function SchoolDrawer({ codigoEscola, etapa, onClose }: SchoolDra
                   <span className="font-semibold text-slate-800">
                     Fundamentação (Lei Estadual nº 10.435/2024):
                   </span>{" "}
-                  As bonificações do Programa Escola que Transforma são apuradas a partir de três componentes: cumprimento da meta pactuada (14º), crescimento pedagógico positivo (15º) e prêmio por destaque na Região de Integração (16º). A consolidação final respeita os multiplicadores de cada categoria e a trava orçamentária de até 3,5 vencimentos-base anuais.
+                  As bonificações do Programa Escola que Transforma são apuradas a partir de três componentes: cumprimento da meta pactuada (14º), crescimento pedagógico positivo (15º) e prêmio por destaque na Região de Integração (16º). A consolidação final respeita os fatores multiplicadores de cada categoria e o teto legal máximo de 3,5x o vencimento-base anual.
                 </div>
               </div>
             </section>
 
-            {/* Bônus Apurado */}
+            {/* Fatores Multiplicadores Apurados */}
             <section>
               <h3 className="text-xs font-bold uppercase tracking-wider text-[#6C757D] mb-2.5 flex items-center gap-1.5">
                 <Award className="w-4 h-4 text-[#A71B2B]" />
-                Índices de Bonificação Apurados
+                Fatores Multiplicadores Apurados
                 <span className="text-[10px] font-medium text-amber-600 tracking-normal ml-auto">
-                  Teto: {LIMITE_BONUS.toLocaleString("pt-BR", { minimumFractionDigits: 1 })}
+                  Teto: 3,5x
                 </span>
               </h3>
               <div className="space-y-3.5 p-4 bg-[#F8F9FA] rounded-md border border-[#E2E8F0]">
                 <BonusBar
-                  label="Bônus Corpo Docente"
+                  label="Fator Multiplicador Docente"
+                  tooltip={TOOLTIP_FATOR_DOCENTE}
                   value={escola.bonus_professor}
                   variant="docente"
+                  isAlfabetizacao={isAlfabetizacao}
                 />
                 <BonusBar
-                  label="Bônus Administrativo"
+                  label="Fator Multiplicador Administrativo"
+                  tooltip={TOOLTIP_FATOR_ADMIN}
                   value={escola.bonus_administrativo}
                   variant="administrativo"
                 />

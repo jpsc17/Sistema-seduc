@@ -35,12 +35,22 @@ export async function GET(
           fluxo,
           etapa_ensino,
           etapa_ensino AS etapa,
+          COALESCE(oferta_alfabetizacao, FALSE) AS oferta_alfabetizacao,
+          COALESCE(meta_alfabetizacao_atingida, FALSE) AS meta_alfabetizacao_atingida,
           COALESCE(elegivel_16_salario, FALSE) AS elegivel_16_salario,
-          motivo_16_salario
+          motivo_16_salario,
+          COALESCE(status_premiacao_ri, 'NÃO ELEGÍVEL') AS status_premiacao_ri
          FROM seduc.vw_escola_resultado_completo 
          WHERE codigo_escola = $1
            AND ($2::text IS NULL OR etapa_ensino = $2)
-         ORDER BY etapa_ensino
+         ORDER BY 
+           CASE 
+             WHEN etapa_ensino ILIKE '%ALFABETIZA%' OR etapa_ensino ILIKE '%1%2%' THEN 1
+             WHEN etapa_ensino ILIKE '%INICIAIS%' OR etapa_ensino ILIKE '%3%5%' THEN 2
+             WHEN etapa_ensino ILIKE '%FINAIS%' OR etapa_ensino ILIKE '%6%9%' THEN 3
+             WHEN etapa_ensino ILIKE '%MÉDIO%' OR etapa_ensino ILIKE '%MEDIO%' THEN 4
+             ELSE 5
+           END ASC
          LIMIT 1`,
         [codigo, etapa]
       );
@@ -69,11 +79,21 @@ export async function GET(
             fluxo,
             etapa_ensino,
             etapa_ensino AS etapa,
+            COALESCE(oferta_alfabetizacao, FALSE) AS oferta_alfabetizacao,
+            COALESCE(meta_alfabetizacao_atingida, FALSE) AS meta_alfabetizacao_atingida,
             COALESCE(elegivel_16_salario, FALSE) AS elegivel_16_salario,
-            motivo_16_salario
+            motivo_16_salario,
+            COALESCE(status_premiacao_ri, 'NÃO ELEGÍVEL') AS status_premiacao_ri
            FROM seduc.vw_escola_resultado_completo 
            WHERE codigo_escola = $1
-           ORDER BY etapa_ensino
+           ORDER BY 
+             CASE 
+               WHEN etapa_ensino ILIKE '%ALFABETIZA%' OR etapa_ensino ILIKE '%1%2%' THEN 1
+               WHEN etapa_ensino ILIKE '%INICIAIS%' OR etapa_ensino ILIKE '%3%5%' THEN 2
+               WHEN etapa_ensino ILIKE '%FINAIS%' OR etapa_ensino ILIKE '%6%9%' THEN 3
+               WHEN etapa_ensino ILIKE '%MÉDIO%' OR etapa_ensino ILIKE '%MEDIO%' THEN 4
+               ELSE 5
+             END ASC
            LIMIT 1`,
           [codigo]
         );

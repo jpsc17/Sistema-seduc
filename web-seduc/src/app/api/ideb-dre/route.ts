@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
          ordem
        FROM seduc.seduc_ideb_dre
        ${whereClause}
-       ORDER BY ordem ASC NULLS LAST, ideb DESC NULLS LAST`,
+       ORDER BY ideb DESC NULLS LAST, dre ASC`,
       params
     );
 

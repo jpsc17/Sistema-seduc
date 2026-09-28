@@ -10,6 +10,8 @@ interface FilterBarProps {
   onSearchChange: (v: string) => void;
   dre: string;
   onDreChange: (v: string) => void;
+  etapa: string;
+  onEtapaChange: (v: string) => void;
   municipio: string;
   onMunicipioChange: (v: string) => void;
   rede: string;
@@ -30,6 +32,8 @@ export default function FilterBar({
   onSearchChange,
   dre,
   onDreChange,
+  etapa,
+  onEtapaChange,
   municipio,
   onMunicipioChange,
   rede,
@@ -61,7 +65,7 @@ export default function FilterBar({
   };
 
   const hasActiveFilters = Boolean(
-    search.trim() || dre || municipio || rede || localizacao || regiaoIntegracao
+    search.trim() || dre || etapa || municipio || rede || localizacao || regiaoIntegracao
   );
 
   const extraFiltersCount = [
@@ -74,6 +78,7 @@ export default function FilterBar({
   const handleReset = () => {
     onSearchChange("");
     onDreChange("");
+    onEtapaChange("");
     onMunicipioChange("");
     onRedeChange("");
     onLocalizacaoChange("");
@@ -83,10 +88,10 @@ export default function FilterBar({
 
   return (
     <div className="bg-white rounded-xl border border-slate-200/80 shadow-xs p-3.5 space-y-3">
-      {/* Barra Principal de Filtros — Apenas 3 elementos em linha flex */}
+      {/* Barra Principal de Filtros */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
         {/* 1. Campo de busca unificada (INEP ou Nome) com ícone de lupa */}
-        <div className="relative flex-1 min-w-[220px]">
+        <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="search"
@@ -98,8 +103,8 @@ export default function FilterBar({
           />
         </div>
 
-        {/* 2. Seletor de DRE (Todas as DREs) */}
-        <div className="w-full md:w-56 shrink-0">
+        {/* 2. Seletor de DRE */}
+        <div className="w-full md:w-48 shrink-0">
           <select
             id="select-dre"
             aria-label="Selecionar Diretoria Regional de Ensino"
@@ -116,7 +121,24 @@ export default function FilterBar({
           </select>
         </div>
 
-        {/* 3. Grupo de ações à direita */}
+        {/* 3. Seletor de Etapa de Ensino */}
+        <div className="w-full md:w-56 shrink-0">
+          <select
+            id="select-etapa"
+            aria-label="Selecionar Etapa de Ensino"
+            value={etapa}
+            onChange={(e) => onEtapaChange(e.target.value)}
+            className="w-full px-3 py-2 bg-slate-50/70 border border-slate-200 rounded-lg text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-slate-400 transition-colors cursor-pointer font-medium"
+          >
+            <option value="">Todas as Etapas</option>
+            <option value="EF Alfabetização (1º e 2º)">EF Alfabetização (1º e 2º)</option>
+            <option value="EF Anos Iniciais (3º ao 5º)">EF Anos Iniciais (3º ao 5º)</option>
+            <option value="EF Anos Finais">EF Anos Finais</option>
+            <option value="Ensino Médio">Ensino Médio</option>
+          </select>
+        </div>
+
+        {/* 4. Grupo de ações à direita */}
         <div className="flex items-center gap-2 shrink-0 justify-end flex-wrap sm:flex-nowrap">
           {/* Botão colapsável Filtros (+) */}
           <button
@@ -169,7 +191,7 @@ export default function FilterBar({
         </div>
       </div>
 
-          {/* Accordion / Drawer sutil de filtros adicionais (Município, Rede, Localização, RI) */}
+      {/* Accordion / Drawer de filtros adicionais (Município, Rede, Localização, RI) */}
       {showAdvanced && (
         <div className="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 animate-in fade-in duration-150">
           {/* Município */}
@@ -263,6 +285,7 @@ export default function FilterBar({
             <span className="font-medium text-slate-600">Filtros:</span>
             {search && <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-700">Busca: &ldquo;{search}&rdquo;</span>}
             {dre && <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-700">DRE: {dre}</span>}
+            {etapa && <span className="bg-blue-50 text-blue-700 border border-blue-200/60 px-2 py-0.5 rounded font-medium">Etapa: {etapa}</span>}
             {municipio && <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-700">Município: {municipio}</span>}
             {rede && <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-700">Rede: {rede}</span>}
             {localizacao && <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-700">{localizacao}</span>}

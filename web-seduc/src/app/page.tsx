@@ -39,6 +39,7 @@ export default function Home() {
   // Filters state
   const [search, setSearch] = useState("");
   const [dre, setDre] = useState("");
+  const [etapa, setEtapa] = useState("");
   const [municipio, setMunicipio] = useState("");
   const [rede, setRede] = useState("");
   const [localizacao, setLocalizacao] = useState("");
@@ -102,6 +103,7 @@ export default function Home() {
       params.set("limit", pageSize.toString());
       if (search.trim()) params.set("search", search.trim());
       if (dre) params.set("dre", dre);
+      if (etapa) params.set("etapa", etapa);
       if (municipio) params.set("municipio", municipio);
       if (rede) params.set("rede", rede);
       if (localizacao) params.set("localizacao", localizacao);
@@ -130,7 +132,7 @@ export default function Home() {
     } finally {
       setTableLoading(false);
     }
-  }, [activeTab, page, pageSize, search, dre, municipio, rede, localizacao, regiaoIntegracao]);
+  }, [activeTab, page, pageSize, search, dre, etapa, municipio, rede, localizacao, regiaoIntegracao]);
 
   useEffect(() => {
     fetchData();
@@ -143,6 +145,10 @@ export default function Home() {
   };
   const handleDreChange = (v: string) => {
     setDre(v);
+    setPage(1);
+  };
+  const handleEtapaChange = (v: string) => {
+    setEtapa(v);
     setPage(1);
   };
   const handleMunicipioChange = (v: string) => {
@@ -165,6 +171,7 @@ export default function Home() {
   const handleClearFilters = () => {
     setSearch("");
     setDre("");
+    setEtapa("");
     setMunicipio("");
     setRede("");
     setLocalizacao("");
@@ -190,6 +197,7 @@ export default function Home() {
       params.set("export", "true");
       if (search.trim()) params.set("search", search.trim());
       if (dre) params.set("dre", dre);
+      if (etapa) params.set("etapa", etapa);
       if (municipio) params.set("municipio", municipio);
       if (rede) params.set("rede", rede);
       if (localizacao) params.set("localizacao", localizacao);
@@ -242,12 +250,15 @@ export default function Home() {
             "Meta Atingida": e.atingiu_meta !== null ? (metaAtingida ? "SIM" : "NÃO") : "—",
             "Ponto Crescimento": e.ponto_crescimento !== null ? Number(e.ponto_crescimento) : "—",
             "Fluxo": e.fluxo !== null ? Number(e.fluxo) : "—",
-            "Bônus Professor": e.bonus_professor !== null ? Number(e.bonus_professor) : "—",
-            "Bônus Administrativo": e.bonus_administrativo !== null ? Number(e.bonus_administrativo) : "—",
+            "Fator Multiplicador Docente": e.bonus_professor !== null ? Number(e.bonus_professor) : "—",
+            "Fator Multiplicador Administrativo": e.bonus_administrativo !== null ? Number(e.bonus_administrativo) : "—",
+            "Oferta Alfabetização": e.oferta_alfabetizacao ? "SIM" : "NÃO",
+            "Meta Alfabetização Atingida": e.oferta_alfabetizacao ? (e.meta_alfabetizacao_atingida ? "SIM" : "NÃO") : "—",
             "Região de Integração (RI)": e.regiao_integracao || "—",
             "14º Salário (Meta)": e.atingiu_meta !== null ? (metaAtingida ? "SIM" : "NÃO") : "—",
             "15º Salário (Crescimento)": (Number(e.ponto_crescimento) || 0) > 0 ? "SIM" : "NÃO",
             "16º Salário (Destaque RI)": e.elegivel_16_salario ? "SIM" : "NÃO",
+            "Situação Premiação RI": e.status_premiacao_ri || "NÃO ELEGÍVEL",
             "Motivo 16º Salário": e.motivo_16_salario || "—",
             "Bônus EJA Iniciais": e.bonus_eja_iniciais !== null ? Number(e.bonus_eja_iniciais) : "—",
             "Bônus EJA Finais": e.bonus_eja_finais !== null ? Number(e.bonus_eja_finais) : "—",
@@ -318,6 +329,8 @@ export default function Home() {
           onSearchChange={handleSearchChange}
           dre={dre}
           onDreChange={handleDreChange}
+          etapa={etapa}
+          onEtapaChange={handleEtapaChange}
           municipio={municipio}
           onMunicipioChange={handleMunicipioChange}
           rede={rede}
@@ -493,6 +506,7 @@ export default function Home() {
               <TabGraficos
                 dre={dre}
                 regiaoIntegracao={regiaoIntegracao}
+                etapa={etapa}
                 onSelectEscola={(cod, etapa) => setSelectedSchool({ codigo: cod, etapa: etapa ?? null })}
               />
             )}
