@@ -116,19 +116,19 @@ function SalarioCard({
       icon: ativo ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : <XCircle className="w-4 h-4 text-slate-300" />,
       bg: ativo ? "bg-emerald-50 border-emerald-200" : "bg-slate-50 border-slate-200",
       labelColor: ativo ? "text-emerald-700" : "text-slate-400",
-      badge: "14º Salário",
+      badge: "Componente 14º Salário (Cumprimento de Meta)",
     },
     "15": {
       icon: ativo ? <TrendingUp className="w-4 h-4 text-blue-600" /> : <XCircle className="w-4 h-4 text-slate-300" />,
       bg: ativo ? "bg-blue-50 border-blue-200" : "bg-slate-50 border-slate-200",
       labelColor: ativo ? "text-blue-700" : "text-slate-400",
-      badge: "15º Salário",
+      badge: "Componente 15º Salário (Evolução Pedagógica)",
     },
     "16": {
       icon: ativo ? <Star className="w-4 h-4 text-amber-500 fill-amber-400" /> : <XCircle className="w-4 h-4 text-slate-300" />,
       bg: ativo ? "bg-amber-50 border-amber-200" : "bg-slate-50 border-slate-200",
       labelColor: ativo ? "text-amber-700" : "text-slate-400",
-      badge: "16º Salário",
+      badge: "Prêmio de Destaque Regional (16º Salário)",
     },
   };
 
@@ -139,11 +139,11 @@ function SalarioCard({
       <div className="flex-1 min-w-0">
         <p className={`text-[11px] font-bold ${c.labelColor}`}>{c.badge}</p>
         <p className={`text-[11px] ${ativo ? "text-slate-700" : "text-slate-400"}`}>
-          {ativo ? descricao : `Não conquistado — ${descricao}`}
+          {descricao}
         </p>
         {numero === "16" && ativo && motivo && (
-          <p className="text-[10px] font-semibold text-amber-600 mt-0.5">
-            {motivo}{ri ? ` — ${ri}` : ""}
+          <p className="text-[10px] font-semibold text-amber-700 mt-0.5">
+            Critério: {motivo}{ri ? ` — ${ri}` : ""}
           </p>
         )}
       </div>
@@ -310,20 +310,28 @@ export default function SchoolDrawer({ codigoEscola, etapa, onClose }: SchoolDra
                 <SalarioCard
                   numero="14"
                   ativo={salarios.tem14}
-                  descricao={salarios.tem14 ? "Atingiu a meta pactuada (IDEB)" : "Meta pactuada não atingida"}
+                  descricao={
+                    salarios.tem14
+                      ? "Meta pactuada alcançada — Habilitado à fração do 14º"
+                      : "Meta pactuada não atingida"
+                  }
                 />
                 <SalarioCard
                   numero="15"
                   ativo={salarios.tem15}
-                  descricao={salarios.tem15 ? "Registrou crescimento pedagógico positivo" : "Sem crescimento registrado"}
+                  descricao={
+                    salarios.tem15
+                      ? "Registrou evolução de aprendizagem positiva"
+                      : "Sem apuração de crescimento positivo"
+                  }
                 />
                 <SalarioCard
                   numero="16"
                   ativo={salarios.tem16}
                   descricao={
                     salarios.tem16
-                      ? `Destaque Regional na Região ${escola.regiao_integracao || ""}`
-                      : "Não é destaque regional na RI"
+                      ? `Destaque na Região de Integração ${escola.regiao_integracao || ""}`
+                      : "Sem destaque apurado na Região de Integração"
                   }
                   motivo={escola.motivo_16_salario}
                   ri={escola.regiao_integracao}
@@ -331,9 +339,9 @@ export default function SchoolDrawer({ codigoEscola, etapa, onClose }: SchoolDra
 
                 {/* Barra total acumulado */}
                 <div className="mt-3 pt-2.5 border-t border-[#E2E8F0]">
-                  <div className="flex justify-between items-center mb-1.5">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1 mb-1.5">
                     <span className="text-[11px] font-bold text-slate-800">
-                      Total Acumulado (Corpo Docente)
+                      Total Acumulado — Corpo Docente:
                     </span>
                     <span
                       className={`text-[11px] font-bold ${
@@ -350,7 +358,7 @@ export default function SchoolDrawer({ codigoEscola, etapa, onClose }: SchoolDra
                       {LIMITE_BONUS.toLocaleString("pt-BR", {
                         minimumFractionDigits: 1,
                       })}{" "}
-                      salários ({pctTotal}%)
+                      vencimentos ({pctTotal}%)
                     </span>
                   </div>
                   <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -368,8 +376,16 @@ export default function SchoolDrawer({ codigoEscola, etapa, onClose }: SchoolDra
                     />
                   </div>
                   <p className="text-[10px] text-slate-500 mt-1 text-right">
-                    Teto máximo legal: 3,5 salários (Lei Escola que Transforma)
+                    Teto legal: até 3,5 vencimentos-base (Lei Estadual nº 10.435/2024)
                   </p>
+                </div>
+
+                {/* Nota de Fundamentação Oficial */}
+                <div className="p-2.5 bg-slate-50 rounded border border-slate-200 text-[10px] text-slate-600 leading-relaxed mt-2">
+                  <span className="font-semibold text-slate-800">
+                    Fundamentação (Lei Estadual nº 10.435/2024):
+                  </span>{" "}
+                  As bonificações do Programa Escola que Transforma são apuradas a partir de três componentes: cumprimento da meta pactuada (14º), crescimento pedagógico positivo (15º) e prêmio por destaque na Região de Integração (16º). A consolidação final respeita os multiplicadores de cada categoria e a trava orçamentária de até 3,5 vencimentos-base anuais.
                 </div>
               </div>
             </section>

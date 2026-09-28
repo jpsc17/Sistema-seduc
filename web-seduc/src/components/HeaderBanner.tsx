@@ -68,10 +68,13 @@ export default function HeaderBanner() {
 
             <div className="space-y-3 text-sm text-slate-600 leading-relaxed">
               <p>
-                Os índices apurados seguem a metodologia de metas da <strong>SEDUC-PA</strong>,
-                ponderando aprovação de fluxo, notas padronizadas e inclusão de unidades EJA e AEE.
+                As bonificações do Programa Escola que Transforma (<strong>Lei Estadual nº 10.435/2024</strong>) são apuradas a partir de três componentes: cumprimento da meta pactuada (14º), crescimento pedagógico positivo (15º) e prêmio por destaque na Região de Integração (16º). A consolidação final respeita os multiplicadores de cada categoria e a trava orçamentária de até 3,5 vencimentos-base anuais.
               </p>
               <div className="bg-slate-50 rounded-lg p-3 border border-slate-100 space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500">Fundamentação Legal:</span>
+                  <span className="font-semibold text-slate-800">Lei Estadual nº 10.435/2024</span>
+                </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-500">Abrangência Estadual:</span>
                   <span className="font-semibold text-emerald-700 flex items-center gap-1">
