@@ -13,20 +13,18 @@ import TabPublicadas from "@/components/TabPublicadas";
 import TabNaoPublicadas from "@/components/TabNaoPublicadas";
 import TabEjaAee from "@/components/TabEjaAee";
 import TabIdebDre from "@/components/TabIdebDre";
-import TabGraficos from "@/components/TabGraficos";
 import SchoolDrawer from "@/components/SchoolDrawer";
 import FooterGov from "@/components/FooterGov";
 import type { Escola, KpiData, FiltrosData } from "@/lib/types";
 import { School, AlertCircle, BookOpen, BarChart3 } from "lucide-react";
 
-type TabType = "publicadas" | "nao_publicadas" | "eja_aee" | "ideb_dre" | "graficos";
+type TabType = "publicadas" | "nao_publicadas" | "eja_aee" | "ideb_dre";
 
 const TAB_LABELS: Record<TabType, string> = {
   publicadas: "Escolas Publicadas",
   nao_publicadas: "Não Publicadas — Pendência de Fluxo",
   eja_aee: "Bônus EJA e AEE",
   ideb_dre: "IDEB por Regional DRE",
-  graficos: "Gráficos",
 };
 
 export default function Home() {
@@ -428,20 +426,6 @@ export default function Home() {
                 <BarChart3 className="w-4 h-4 text-slate-400" />
                 <span>IDEB por DRE</span>
               </button>
-              {/* Nova aba Gráficos */}
-              <button
-                role="tab"
-                aria-selected={activeTab === "graficos"}
-                onClick={() => handleTabChange("graficos")}
-                className={`inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-                  activeTab === "graficos"
-                    ? "bg-white text-slate-900 shadow-xs font-semibold"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
-                }`}
-              >
-                <BarChart3 className="w-4 h-4 text-slate-400" />
-                <span>Gráficos</span>
-              </button>
             </div>
           </div>
 
@@ -478,9 +462,6 @@ export default function Home() {
 
             {activeTab === "ideb_dre" && (
               <TabIdebDre dre={dre} />
-            )}
-            {activeTab === "graficos" && (
-              <TabGraficos />
             )}
           </div>
         </section>
