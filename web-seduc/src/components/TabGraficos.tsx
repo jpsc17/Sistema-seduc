@@ -75,14 +75,14 @@ export default function TabGraficos() {
               cy="50%"
               innerRadius={80}
               outerRadius={120}
-              label={({ percent, label }) => `${label}: ${(percent * 100).toFixed(1)}%`}
+              label={({ percent, name }: any) => `${name}: ${((percent ?? 0) * 100).toFixed(1)}%`}
             >
               {situacaoRede.map((_, i) => (
                 <Cell key={i} fill={COLORS[i % COLORS.length]} />
               ))}
             </Pie>
             <Tooltip
-              formatter={(value: number, name: string) => [value, name]}
+              formatter={(value: any, name: any) => [value, name]}
             />
             <Legend />
           </PieChart>
