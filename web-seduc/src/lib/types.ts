@@ -75,10 +75,10 @@ export interface DashboardGraficosData {
     crescimentoPositivo: number;
     crescimentoZero: number;
     matriz: Array<{
-      categoria: 'Meta + Crescimento' | 'Apenas Meta' | 'Apenas Crescimento' | 'Nenhum';
+      categoria: string;
       quantidade: number;
       percentual: number;
-      impactoSalario: '14º e 15º' | '14º Salário' | '15º Salário' | 'Sem Bônus Extra';
+      impactoSalario: string;
     }>;
   };
   ideb: {

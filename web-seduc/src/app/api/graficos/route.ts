@@ -80,28 +80,44 @@ export async function GET(request: NextRequest) {
       WITH escola_pub AS (
         SELECT 
           codigo_escola,
-          MAX(COALESCE(atingiu_meta, 0)) AS max_meta,
-          MAX(COALESCE(ponto_crescimento, 0)) AS max_cresc
+          CASE 
+            WHEN MAX(COALESCE(atingiu_meta, 0)) > 0 THEN 'SIM' 
+            ELSE 'NAO' 
+          END AS meta,
+          MAX(COALESCE(ponto_crescimento, 0)) AS crescimento
         FROM seduc.vw_escola_resultado_completo
         WHERE status_publicacao = 'PUBLICADA'
           AND ($1::text IS NULL OR UPPER(TRIM(regional_dre)) = UPPER(TRIM($1)))
           AND ($2::text IS NULL OR UPPER(TRIM(regiao_integracao)) = UPPER(TRIM($2)))
         GROUP BY codigo_escola
       ),
-      cat_counts AS (
+      classificacao AS (
         SELECT
-          COUNT(*) AS total,
-          COUNT(CASE WHEN max_meta > 0 THEN 1 END) AS meta_sim,
-          COUNT(CASE WHEN max_meta = 0 THEN 1 END) AS meta_nao,
-          COUNT(CASE WHEN max_cresc > 0 THEN 1 END) AS cresc_pos,
-          COUNT(CASE WHEN max_cresc = 0 THEN 1 END) AS cresc_zero,
-          COUNT(CASE WHEN max_meta > 0 AND max_cresc > 0 THEN 1 END) AS ambos,
-          COUNT(CASE WHEN max_meta > 0 AND max_cresc = 0 THEN 1 END) AS apenas_meta,
-          COUNT(CASE WHEN max_meta = 0 AND max_cresc > 0 THEN 1 END) AS apenas_cresc,
-          COUNT(CASE WHEN max_meta = 0 AND max_cresc = 0 THEN 1 END) AS nenhum
+          codigo_escola,
+          meta,
+          crescimento,
+          CASE 
+            WHEN UPPER(TRIM(meta)) = 'SIM' AND COALESCE(crescimento, 0) > 0 
+              THEN '14º e 15º Salário'
+            WHEN UPPER(TRIM(meta)) != 'SIM' AND COALESCE(crescimento, 0) > 0 
+              THEN 'Apenas 15º (Crescimento)'
+            WHEN UPPER(TRIM(meta)) = 'SIM' AND COALESCE(crescimento, 0) <= 0 
+              THEN 'Apenas 14º (Meta sem Crescimento)'
+            ELSE 'Sem Bonificação Extra'
+          END AS categoria
         FROM escola_pub
       )
-      SELECT * FROM cat_counts;
+      SELECT
+        COUNT(*) AS total,
+        COUNT(CASE WHEN UPPER(TRIM(meta)) = 'SIM' THEN 1 END) AS meta_sim,
+        COUNT(CASE WHEN UPPER(TRIM(meta)) != 'SIM' THEN 1 END) AS meta_nao,
+        COUNT(CASE WHEN COALESCE(crescimento, 0) > 0 THEN 1 END) AS cresc_pos,
+        COUNT(CASE WHEN COALESCE(crescimento, 0) <= 0 THEN 1 END) AS cresc_zero,
+        COUNT(CASE WHEN categoria = '14º e 15º Salário' THEN 1 END) AS ambos,
+        COUNT(CASE WHEN categoria = 'Apenas 15º (Crescimento)' THEN 1 END) AS apenas_cresc,
+        COUNT(CASE WHEN categoria = 'Apenas 14º (Meta sem Crescimento)' THEN 1 END) AS apenas_meta,
+        COUNT(CASE WHEN categoria = 'Sem Bonificação Extra' THEN 1 END) AS nenhum
+      FROM classificacao;
       `,
       [dre, ri]
     );
@@ -120,28 +136,28 @@ export async function GET(request: NextRequest) {
       crescimentoZero: Number(mc?.cresc_zero || 0),
       matriz: [
         {
-          categoria: "Meta + Crescimento",
+          categoria: "14º e 15º Salário (Meta + Crescimento)",
           quantidade: ambos,
           percentual: Number(((ambos / (totalPub || 1)) * 100).toFixed(2)),
-          impactoSalario: "14º e 15º",
+          impactoSalario: "14º e 15º Salário",
         },
         {
-          categoria: "Apenas Crescimento",
+          categoria: "Apenas 15º Salário (Crescimento sem bater Meta)",
           quantidade: apenasCresc,
           percentual: Number(((apenasCresc / (totalPub || 1)) * 100).toFixed(2)),
-          impactoSalario: "15º Salário",
+          impactoSalario: "Apenas 15º Salário",
         },
         {
-          categoria: "Apenas Meta",
+          categoria: "Apenas 14º Salário (Meta batida com Crescimento nulo)",
           quantidade: apenasMeta,
           percentual: Number(((apenasMeta / (totalPub || 1)) * 100).toFixed(2)),
-          impactoSalario: "14º Salário",
+          impactoSalario: "Apenas 14º Salário",
         },
         {
-          categoria: "Nenhum",
+          categoria: "Sem Bonificação Extra",
           quantidade: nenhum,
           percentual: Number(((nenhum / (totalPub || 1)) * 100).toFixed(2)),
-          impactoSalario: "Sem Bônus Extra",
+          impactoSalario: "Sem Bonificação Extra",
         },
       ],
     };

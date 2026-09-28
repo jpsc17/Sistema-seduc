@@ -417,29 +417,29 @@ export default function TabGraficos({
                   <YAxis
                     dataKey="impactoSalario"
                     type="category"
-                    tick={{ fontSize: 11, fill: "#334155", fontWeight: 500 }}
-                    width={110}
+                    tick={{ fontSize: 10, fill: "#334155", fontWeight: 500 }}
+                    width={130}
                   />
                   <Tooltip
                     cursor={{ fill: "rgba(226, 232, 240, 0.4)" }}
                     formatter={(val: any, _, item: any) => [
-                      `${val} escolas (${item?.payload?.percentual}%)`,
+                      `${Number(val).toLocaleString("pt-BR")} escolas (${item?.payload?.percentual}%)`,
                       item?.payload?.categoria,
                     ]}
                     contentStyle={{
                       backgroundColor: "#FFFFFF",
-                      borderColor: "#E2E8F0",
+                      borderColor: "#CBD5E1",
                       borderRadius: "8px",
                       fontSize: "12px",
-                      boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
+                      boxShadow: "0 4px 6px -1px rgba(0,0,0,0.08)",
                     }}
                   />
                   <Bar dataKey="quantidade" radius={[0, 4, 4, 0]}>
                     {metaCrescimento.matriz.map((entry, index) => {
                       let color = "#94A3B8";
-                      if (entry.impactoSalario === "14º e 15º") color = "#059669";
-                      if (entry.impactoSalario === "15º Salário") color = "#334155";
-                      if (entry.impactoSalario === "14º Salário") color = "#0D9488";
+                      if (entry.categoria.includes("14º e 15º")) color = "#059669";
+                      else if (entry.categoria.includes("Apenas 15º")) color = "#334155";
+                      else if (entry.categoria.includes("Apenas 14º")) color = "#0D9488";
                       return <Cell key={`bar-meta-${index}`} fill={color} />;
                     })}
                   </Bar>
@@ -447,23 +447,47 @@ export default function TabGraficos({
               </ResponsiveContainer>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-100 text-[11px]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-slate-100 text-[11px]">
               <div className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded bg-emerald-600 shrink-0" />
-                <span className="text-slate-600 truncate">14º e 15º (30.2%)</span>
+                <span className="text-slate-700 font-medium">
+                  14º e 15º Salário (Meta + Crescimento):
+                </span>
+                <span className="text-slate-500 font-semibold ml-auto">
+                  {metaCrescimento.matriz[0]?.quantidade ?? 270} ({metaCrescimento.matriz[0]?.percentual ?? 30.17}%)
+                </span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded bg-slate-700 shrink-0" />
-                <span className="text-slate-600 truncate">15º Salário (39.1%)</span>
+                <span className="text-slate-700 font-medium">
+                  Apenas 15º Salário (Crescimento sem bater Meta):
+                </span>
+                <span className="text-slate-500 font-semibold ml-auto">
+                  {metaCrescimento.matriz[1]?.quantidade ?? 350} ({metaCrescimento.matriz[1]?.percentual ?? 39.11}%)
+                </span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded bg-teal-600 shrink-0" />
-                <span className="text-slate-600 truncate">14º Salário (0.1%)</span>
+                <span className="text-slate-700 font-medium">
+                  Apenas 14º Salário (Meta batida com Crescimento nulo):
+                </span>
+                <span className="text-slate-500 font-semibold ml-auto">
+                  {metaCrescimento.matriz[2]?.quantidade ?? 1} ({metaCrescimento.matriz[2]?.percentual ?? 0.11}%)
+                </span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded bg-slate-400 shrink-0" />
-                <span className="text-slate-600 truncate">Sem Extra (30.6%)</span>
+                <span className="text-slate-700 font-medium">
+                  Sem Bonificação Extra:
+                </span>
+                <span className="text-slate-500 font-semibold ml-auto">
+                  {metaCrescimento.matriz[3]?.quantidade ?? 274} ({metaCrescimento.matriz[3]?.percentual ?? 30.61}%)
+                </span>
               </div>
+            </div>
+
+            <div className="mt-2.5 p-2 bg-slate-50 border border-slate-200 rounded text-[10.5px] text-slate-600 leading-relaxed">
+              <span className="font-semibold text-slate-800">Auditoria Pedagógica:</span> Na rede, 271 escolas alcançaram a meta pactuada (14º); destas, 270 também evoluíram pedagogicamente (acumulando o 15º). Apenas 1 escola alcançou a meta com crescimento nulo.
             </div>
           </div>
         </div>
