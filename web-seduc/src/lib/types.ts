@@ -53,14 +53,17 @@ export interface KpiData {
 }
 
 export interface PontosBonusDreRow {
-  ordem?: number;
+  ordem?: number | null;
   dre: string;
-  pontos_bonus: number | null;
-  matricula: number | null;
-  bonus_etapa: number | null;
-  bonus_ri: number | null;
-  bonus_total: number | null;
   matricula_total?: number | null;
+  bonus_ai?: number | null;
+  bonus_af?: number | null;
+  bonus_em?: number | null;
+  bonus_ri?: number | null;
+  bonus_total: number | null;
+  pontos_bonus?: number | null;
+  matricula?: number | null;
+  bonus_etapa?: number | null;
 }
 
 export interface FiltrosData {
