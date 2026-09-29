@@ -87,11 +87,11 @@ export default function FooterGov() {
             </ul>
           </div>
 
-          {/* Coluna 3: Atendimento e Ouvidoria */}
+          {/* Coluna 3: Atendimento SEDUC */}
           <div className="space-y-2.5">
             <h4 className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-1.5">
               <Phone className="w-3.5 h-3.5 text-[#CD1719]" />
-              Atendimento e Ouvidoria
+              Atendimento SEDUC
             </h4>
             <ul className="space-y-2 text-gray-400">
               <li className="flex items-center gap-2">
@@ -100,17 +100,7 @@ export default function FooterGov() {
               </li>
               <li className="flex items-center gap-2">
                 <Mail className="w-3.5 h-3.5 text-gray-500 shrink-0" />
-                <span>ouvidoria@seduc.pa.gov.br</span>
-              </li>
-              <li>
-                <a
-                  href="https://seduc.pa.gov.br/ouvidoria"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[#CD1719] hover:underline font-medium inline-block mt-1"
-                >
-                  Registrar Manifestação na Ouvidoria &rarr;
-                </a>
+                <span>faleconosco@seduc.pa.gov.br</span>
               </li>
             </ul>
           </div>

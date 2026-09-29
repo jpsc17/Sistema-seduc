@@ -26,6 +26,27 @@ export async function GET(request: NextRequest) {
       conditions.push(`status_publicacao = 'PUBLICADA'`);
     } else if (tab === "nao_publicadas") {
       conditions.push(`status_publicacao = 'NAO_PUBLICADA'`);
+    } else if (tab === "alfabetizacao") {
+      conditions.push(`oferta_alfabetizacao = TRUE`);
+    }
+
+    const destaqueRi = searchParams.get("destaque_ri") || "";
+    if (destaqueRi === "sim") {
+      conditions.push(`elegivel_16_salario = TRUE`);
+    } else if (destaqueRi === "nao") {
+      conditions.push(`elegivel_16_salario = FALSE`);
+    }
+
+    // Filter by card_filter (Cards analíticos como filtros rápidos / relatório executivo)
+    const cardFilter = searchParams.get("card_filter") || "";
+    if (cardFilter === "meta") {
+      conditions.push(`atingiu_meta >= 1`);
+    } else if (cardFilter === "crescimento") {
+      conditions.push(`ponto_crescimento > 0`);
+    } else if (cardFilter === "fluxo") {
+      conditions.push(`(atingiu_meta IS NULL OR atingiu_meta < 1) AND (ponto_crescimento IS NULL OR ponto_crescimento <= 0) AND fluxo > 0`);
+    } else if (cardFilter === "zero") {
+      conditions.push(`bonus_professor = 0.0`);
     }
 
     // Filter by Etapa de Ensino
@@ -111,6 +132,8 @@ export async function GET(request: NextRequest) {
       atingiu_meta,
       ponto_crescimento,
       fluxo,
+      ponto_regiao_integracao,
+      ponto_alfabetizacao,
       etapa_ensino,
       etapa_ensino AS etapa,
       COALESCE(oferta_alfabetizacao, FALSE) AS oferta_alfabetizacao,

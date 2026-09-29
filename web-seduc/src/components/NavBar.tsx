@@ -1,8 +1,10 @@
 "use client";
 
+import type { TabType } from "@/lib/types";
+
 interface NavBarProps {
-  activeTab?: string;
-  onSelectTab?: (tab: "publicadas" | "nao_publicadas" | "eja_aee" | "ideb_dre" | "graficos") => void;
+  activeTab?: TabType;
+  onSelectTab?: (tab: TabType) => void;
 }
 
 export default function NavBar({ activeTab, onSelectTab }: NavBarProps = {}) {

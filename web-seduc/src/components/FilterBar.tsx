@@ -20,6 +20,8 @@ interface FilterBarProps {
   onLocalizacaoChange: (v: string) => void;
   regiaoIntegracao: string;
   onRegiaoIntegracaoChange: (v: string) => void;
+  destaqueRi?: string;
+  onDestaqueRiChange?: (v: string) => void;
   onExport: () => void;
   exporting?: boolean;
   onClearFilters?: () => void;
@@ -42,6 +44,8 @@ export default function FilterBar({
   onLocalizacaoChange,
   regiaoIntegracao,
   onRegiaoIntegracaoChange,
+  destaqueRi = "",
+  onDestaqueRiChange,
   onExport,
   exporting = false,
   onClearFilters,
@@ -65,7 +69,7 @@ export default function FilterBar({
   };
 
   const hasActiveFilters = Boolean(
-    search.trim() || dre || etapa || municipio || rede || localizacao || regiaoIntegracao
+    search.trim() || dre || etapa || municipio || rede || localizacao || regiaoIntegracao || destaqueRi
   );
 
   const extraFiltersCount = [
@@ -73,6 +77,7 @@ export default function FilterBar({
     Boolean(rede),
     Boolean(localizacao),
     Boolean(regiaoIntegracao),
+    Boolean(destaqueRi),
   ].filter(Boolean).length;
 
   const handleReset = () => {
@@ -83,6 +88,7 @@ export default function FilterBar({
     onRedeChange("");
     onLocalizacaoChange("");
     onRegiaoIntegracaoChange("");
+    if (onDestaqueRiChange) onDestaqueRiChange("");
     if (onClearFilters) onClearFilters();
   };
 
@@ -191,9 +197,9 @@ export default function FilterBar({
         </div>
       </div>
 
-      {/* Accordion / Drawer de filtros adicionais (Município, Rede, Localização, RI) */}
+      {/* Accordion / Drawer de filtros adicionais (Município, Rede, Localização, RI, Destaque 16º) */}
       {showAdvanced && (
-        <div className="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 animate-in fade-in duration-150">
+        <div className="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 animate-in fade-in duration-150">
           {/* Município */}
           <div>
             <label htmlFor="select-municipio" className="block text-xs font-medium text-slate-500 mb-1">
@@ -275,6 +281,23 @@ export default function FilterBar({
               ))}
             </select>
           </div>
+
+          {/* Destaque RI (16º Salário) */}
+          <div>
+            <label htmlFor="select-destaque-ri" className="block text-xs font-semibold text-emerald-800 mb-1">
+              Destaque RI (16º Salário)
+            </label>
+            <select
+              id="select-destaque-ri"
+              value={destaqueRi}
+              onChange={(e) => onDestaqueRiChange?.(e.target.value)}
+              className="w-full px-3 py-1.5 bg-emerald-50/70 border border-emerald-200 rounded-lg text-sm text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-300 font-medium"
+            >
+              <option value="">Todas</option>
+              <option value="sim">Apenas Destaques RI (16º Conquistado)</option>
+              <option value="nao">Sem Destaque RI</option>
+            </select>
+          </div>
         </div>
       )}
 
@@ -290,6 +313,11 @@ export default function FilterBar({
             {rede && <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-700">Rede: {rede}</span>}
             {localizacao && <span className="bg-slate-100 px-2 py-0.5 rounded text-slate-700">{localizacao}</span>}
             {regiaoIntegracao && <span className="bg-indigo-50 text-indigo-700 border border-indigo-200/60 px-2 py-0.5 rounded">RI: {regiaoIntegracao}</span>}
+            {destaqueRi && (
+              <span className="bg-emerald-50 text-emerald-800 border border-emerald-200/60 px-2 py-0.5 rounded font-semibold">
+                16º Salário: {destaqueRi === "sim" ? "Apenas Destaques RI" : "Sem Destaque"}
+              </span>
+            )}
           </div>
           {totalFilteredRecords !== undefined && (
             <span className="text-slate-400">

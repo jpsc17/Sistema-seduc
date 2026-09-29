@@ -7,25 +7,27 @@ import HeaderGov from "@/components/HeaderGov";
 import NavBar from "@/components/NavBar";
 import Breadcrumb from "@/components/Breadcrumb";
 import HeaderBanner from "@/components/HeaderBanner";
-import KpiCards from "@/components/KpiCards";
+import KpiCards, { CardFilterType } from "@/components/KpiCards";
 import FilterBar from "@/components/FilterBar";
+import TabTodas from "@/components/TabTodas";
 import TabPublicadas from "@/components/TabPublicadas";
 import TabNaoPublicadas from "@/components/TabNaoPublicadas";
+import TabAlfabetizacao from "@/components/TabAlfabetizacao";
 import TabEjaAee from "@/components/TabEjaAee";
-import TabIdebDre from "@/components/TabIdebDre";
+import TabPontosBonusDre from "@/components/TabPontosBonusDre";
 import TabGraficos from "@/components/TabGraficos";
 import SchoolDrawer from "@/components/SchoolDrawer";
 import FooterGov from "@/components/FooterGov";
-import type { Escola, KpiData, FiltrosData } from "@/lib/types";
-import { School, AlertCircle, BookOpen, BarChart3, TrendingUp } from "lucide-react";
-
-type TabType = "publicadas" | "nao_publicadas" | "eja_aee" | "ideb_dre" | "graficos";
+import type { Escola, KpiData, FiltrosData, TabType } from "@/lib/types";
+import { School, AlertCircle, BookOpen, BarChart3, Award, GraduationCap, LayoutGrid } from "lucide-react";
 
 const TAB_LABELS: Record<TabType, string> = {
+  todas: "Todas as Escolas",
   publicadas: "Escolas Publicadas",
   nao_publicadas: "Não Publicadas — Pendência de Fluxo",
+  alfabetizacao: "Alfabetização (1º e 2º Ano)",
   eja_aee: "Bônus EJA e AEE",
-  ideb_dre: "IDEB por Regional DRE",
+  pontos_bonus_dre: "Pontos de Bônus — DRE",
   graficos: "Painel Analítico — Gráficos",
 };
 
@@ -44,6 +46,10 @@ export default function Home() {
   const [rede, setRede] = useState("");
   const [localizacao, setLocalizacao] = useState("");
   const [regiaoIntegracao, setRegiaoIntegracao] = useState("");
+  const [destaqueRi, setDestaqueRi] = useState("");
+
+  // Card Interactive Filter state (Supervisão / Relatório Executivo)
+  const [cardFilter, setCardFilter] = useState<CardFilterType>(null);
 
   // Table & pagination state
   const [escolas, setEscolas] = useState<Escola[]>([]);
@@ -58,26 +64,37 @@ export default function Home() {
   const [selectedSchool, setSelectedSchool] = useState<{ codigo: string; etapa: string | null } | null>(null);
   const [exporting, setExporting] = useState(false);
 
-  // Fetch KPIs
-  useEffect(() => {
-    async function loadKpis() {
-      try {
-        setKpiLoading(true);
-        const res = await fetch("/api/kpis");
-        if (res.ok) {
-          const data = await res.json();
-          setKpiData(data);
-        }
-      } catch (err) {
-        console.error("Erro ao carregar KPIs:", err);
-      } finally {
-        setKpiLoading(false);
-      }
-    }
-    loadKpis();
-  }, []);
+  // 1. Fetch KPIs com Reatividade Imediata aos Filtros do Topo
+  const loadKpis = useCallback(async () => {
+    try {
+      setKpiLoading(true);
+      const params = new URLSearchParams();
+      if (search.trim()) params.set("search", search.trim());
+      if (dre) params.set("dre", dre);
+      if (etapa) params.set("etapa", etapa);
+      if (municipio) params.set("municipio", municipio);
+      if (rede) params.set("rede", rede);
+      if (localizacao) params.set("localizacao", localizacao);
+      if (regiaoIntegracao) params.set("regiao_integracao", regiaoIntegracao);
+      if (destaqueRi) params.set("destaque_ri", destaqueRi);
 
-  // Fetch Filters Options
+      const res = await fetch(`/api/kpis?${params.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        setKpiData(data);
+      }
+    } catch (err) {
+      console.error("Erro ao carregar KPIs:", err);
+    } finally {
+      setKpiLoading(false);
+    }
+  }, [search, dre, etapa, municipio, rede, localizacao, regiaoIntegracao, destaqueRi]);
+
+  useEffect(() => {
+    loadKpis();
+  }, [loadKpis]);
+
+  // 2. Fetch Filters Options
   useEffect(() => {
     async function loadFiltros() {
       try {
@@ -93,9 +110,9 @@ export default function Home() {
     loadFiltros();
   }, []);
 
-  // Fetch Escolas / EJA (IDEB e Gráficos gerenciam suas próprias buscas)
+  // 3. Fetch Escolas / EJA / Alfabetização (DRE e Gráficos gerenciam suas próprias buscas)
   const fetchData = useCallback(async () => {
-    if (activeTab === "ideb_dre" || activeTab === "graficos") return;
+    if (activeTab === "pontos_bonus_dre" || activeTab === "graficos") return;
     setTableLoading(true);
     try {
       const params = new URLSearchParams();
@@ -108,6 +125,8 @@ export default function Home() {
       if (rede) params.set("rede", rede);
       if (localizacao) params.set("localizacao", localizacao);
       if (regiaoIntegracao) params.set("regiao_integracao", regiaoIntegracao);
+      if (destaqueRi) params.set("destaque_ri", destaqueRi);
+      if (cardFilter) params.set("card_filter", cardFilter);
 
       if (activeTab === "eja_aee") {
         const res = await fetch(`/api/eja-aee?${params.toString()}`);
@@ -132,13 +151,26 @@ export default function Home() {
     } finally {
       setTableLoading(false);
     }
-  }, [activeTab, page, pageSize, search, dre, etapa, municipio, rede, localizacao, regiaoIntegracao]);
+  }, [
+    activeTab,
+    page,
+    pageSize,
+    search,
+    dre,
+    etapa,
+    municipio,
+    rede,
+    localizacao,
+    regiaoIntegracao,
+    destaqueRi,
+    cardFilter,
+  ]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // Reset page when filters change
+  // Handlers para Filtros com Reset de Paginação
   const handleSearchChange = (v: string) => {
     setSearch(v);
     setPage(1);
@@ -167,6 +199,10 @@ export default function Home() {
     setRegiaoIntegracao(v);
     setPage(1);
   };
+  const handleDestaqueRiChange = (v: string) => {
+    setDestaqueRi(v);
+    setPage(1);
+  };
 
   const handleClearFilters = () => {
     setSearch("");
@@ -176,7 +212,26 @@ export default function Home() {
     setRede("");
     setLocalizacao("");
     setRegiaoIntegracao("");
+    setDestaqueRi("");
+    setCardFilter(null);
     setPage(1);
+  };
+
+  const handleReset = () => {
+    handleClearFilters();
+    setActiveTab("publicadas");
+    setSelectedSchool(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  // Handler para Mini-Cards Analíticos como Filtro Rápido
+  const handleCardFilterChange = (filter: CardFilterType) => {
+    setCardFilter(filter);
+    setPage(1);
+    // Se o usuário estiver em DRE ou Gráficos, muda para escolas publicadas para visualizar o relatório
+    if (activeTab === "pontos_bonus_dre" || activeTab === "graficos") {
+      setActiveTab("publicadas");
+    }
   };
 
   const handleTabChange = (tab: TabType) => {
@@ -189,7 +244,7 @@ export default function Home() {
     setPage(1);
   };
 
-  // Export to Excel (Baixa a base completa com os filtros ativos)
+  // Export to Excel (Respeita filtros de busca e o filtro do card analítico ativo)
   const handleExport = async () => {
     try {
       setExporting(true);
@@ -202,6 +257,8 @@ export default function Home() {
       if (rede) params.set("rede", rede);
       if (localizacao) params.set("localizacao", localizacao);
       if (regiaoIntegracao) params.set("regiao_integracao", regiaoIntegracao);
+      if (destaqueRi) params.set("destaque_ri", destaqueRi);
+      if (cardFilter) params.set("card_filter", cardFilter);
 
       let rowsToExport: Record<string, any>[] = [];
       let sheetName = "Dados";
@@ -226,9 +283,57 @@ export default function Home() {
           "EJA Médio": r.eja_medio !== null ? Number(r.eja_medio) : "—",
           "Atendimento Especializado (AEE)": r.atendimento_especializado_aee !== null ? Number(r.atendimento_especializado_aee) : "—",
         }));
+      } else if (activeTab === "alfabetizacao") {
+        sheetName = "Alfabetização 1º e 2º";
+        params.set("tipo", "alfabetizacao");
+        const res = await fetch(`/api/escolas?${params.toString()}`);
+        if (!res.ok) throw new Error("Falha ao buscar base de alfabetização");
+        const json = await res.json();
+        const rawData = json.data || [];
+
+        rowsToExport = rawData.map((e: any) => {
+          const metaAtingida =
+            e.meta_alfabetizacao_atingida ||
+            (e.atingiu_meta !== null && Number(e.atingiu_meta) >= 1) ||
+            (e.bonus_professor !== null && Number(e.bonus_professor) >= 1);
+          const fator = e.bonus_professor !== null ? Number(e.bonus_professor) : metaAtingida ? 1.0 : 0.0;
+
+          return {
+            "Código INEP": e.codigo_escola,
+            "Nome da Escola": e.nome_escola,
+            "Município": e.municipio,
+            "DRE / Regional": e.regional_dre || "—",
+            "Região de Integração (RI)": e.regiao_integracao || "—",
+            "Oferta de Alfabetização": "Sim (1º e 2º)",
+            "Situação da Meta": metaAtingida ? "Atingida (1,0)" : "Não Atingida (0,0)",
+            "Fator Docente Específico": fator,
+          };
+        });
+      } else if (activeTab === "pontos_bonus_dre") {
+        sheetName = "Pontos de Bônus DRE";
+        const res = await fetch(`/api/pontos-bonus-dre?${params.toString()}`);
+        if (!res.ok) throw new Error("Falha ao buscar pontos de bônus DRE");
+        const json = await res.json();
+        const rawData = json.data || [];
+
+        rowsToExport = rawData.map((r: any, idx: number) => ({
+          "Posição": `${idx + 1}º`,
+          "Diretoria Regional de Ensino (DRE)": r.dre,
+          "Pontos de Bônus": r.pontos_bonus !== null ? Number(r.pontos_bonus) : "—",
+          "Matrícula Etapa": r.matricula !== null ? Number(r.matricula) : "—",
+          "Bônus Etapa": r.bonus_etapa !== null ? Number(r.bonus_etapa) : "—",
+          "Bônus Regional (RI)": r.bonus_ri !== null ? Number(r.bonus_ri) : "—",
+          "Bônus Total DRE": r.bonus_total !== null ? Number(r.bonus_total) : "—",
+          "Matrícula Total": r.matricula_total !== null ? Number(r.matricula_total) : "—",
+        }));
       } else {
         params.set("tipo", activeTab);
-        sheetName = activeTab === "publicadas" ? "Escolas Publicadas" : "Não Publicadas";
+        sheetName =
+          activeTab === "todas"
+            ? "Todas as Escolas"
+            : activeTab === "publicadas"
+            ? "Escolas Publicadas"
+            : "Não Publicadas";
         const res = await fetch(`/api/escolas?${params.toString()}`);
         if (!res.ok) throw new Error("Falha ao buscar base completa de escolas");
         const json = await res.json();
@@ -276,9 +381,10 @@ export default function Home() {
       const ws = XLSX.utils.json_to_sheet(rowsToExport);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      const suffix = cardFilter ? `_${cardFilter.toUpperCase()}` : "";
       XLSX.writeFile(
         wb,
-        `SEDUC_${sheetName.replace(/\s+/g, "_")}_Completo_${new Date().toISOString().slice(0, 10)}.xlsx`
+        `SEDUC_${sheetName.replace(/\s+/g, "_")}${suffix}_Completo_${new Date().toISOString().slice(0, 10)}.xlsx`
       );
     } catch (err) {
       console.error("Erro na exportação para Excel:", err);
@@ -303,7 +409,7 @@ export default function Home() {
       <TopBar />
 
       {/* 2. Header Oficial da Instituição */}
-      <HeaderGov />
+      <HeaderGov onReset={handleReset} />
 
       {/* 3. Barra de Navegação Unificada */}
       <NavBar activeTab={activeTab} onSelectTab={handleTabChange} />
@@ -317,12 +423,9 @@ export default function Home() {
         className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6"
       >
         {/* Breadcrumb Indicador de Localização */}
-        <Breadcrumb currentTabName={TAB_LABELS[activeTab]} />
+        <Breadcrumb currentTabName={TAB_LABELS[activeTab]} onReset={handleReset} />
 
-        {/* Cards de KPI Minimalistas (ocultados na aba Gráficos para evitar duplicação) */}
-        {activeTab !== "graficos" && <KpiCards data={kpiData} loading={kpiLoading} />}
-
-        {/* Barra de Filtros e Ações (Lei de Hick) */}
+        {/* 1. FILTROS NO TOPO ABSOLUTO (Acima de todas as fileiras de cards de KPI) */}
         <FilterBar
           filtros={filtros}
           search={search}
@@ -339,13 +442,25 @@ export default function Home() {
           onLocalizacaoChange={handleLocalizacaoChange}
           regiaoIntegracao={regiaoIntegracao}
           onRegiaoIntegracaoChange={handleRegiaoIntegracaoChange}
+          destaqueRi={destaqueRi}
+          onDestaqueRiChange={handleDestaqueRiChange}
           onExport={handleExport}
           exporting={exporting}
           onClearFilters={handleClearFilters}
           totalFilteredRecords={totalRecords}
         />
 
-        {/* Seletor de Abas — Padrão Segmented Control Neutro */}
+        {/* 2. CARDS DE KPI (Reativos ao filtro do topo + Interativos como Filtros Rápidos / Relatório Executivo) */}
+        {activeTab !== "graficos" && (
+          <KpiCards
+            data={kpiData}
+            loading={kpiLoading}
+            activeCardFilter={cardFilter}
+            onCardFilterChange={handleCardFilterChange}
+          />
+        )}
+
+        {/* 3. Seletor de Abas — Segmented Control Institucional */}
         <section aria-label="Tabelas de Resultados" className="space-y-4">
           <div className="flex items-center overflow-x-auto no-scrollbar py-1">
             <div
@@ -353,6 +468,33 @@ export default function Home() {
               aria-label="Seleção de Visualização"
               className="inline-flex p-1 bg-slate-100 rounded-xl gap-1 max-w-full overflow-x-auto"
             >
+              {/* Nova Aba: Todas as Escolas */}
+              <button
+                role="tab"
+                aria-selected={activeTab === "todas"}
+                onClick={() => handleTabChange("todas")}
+                className={`inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === "todas"
+                    ? "bg-white text-slate-900 shadow-xs font-semibold"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+                }`}
+              >
+                <LayoutGrid className="w-4 h-4 text-slate-400" />
+                <span>Todas as Escolas</span>
+                {kpiData?.total_escolas !== undefined && (
+                  <span
+                    className={`text-xs px-1.5 py-0.5 rounded-md font-medium ${
+                      activeTab === "todas"
+                        ? "bg-slate-100 text-slate-700"
+                        : "bg-slate-200/50 text-slate-500"
+                    }`}
+                  >
+                    {kpiData.total_escolas.toLocaleString("pt-BR")}
+                  </span>
+                )}
+              </button>
+
+              {/* Aba: Escolas Publicadas */}
               <button
                 role="tab"
                 aria-selected={activeTab === "publicadas"}
@@ -378,6 +520,7 @@ export default function Home() {
                 )}
               </button>
 
+              {/* Aba: Não Publicadas */}
               <button
                 role="tab"
                 aria-selected={activeTab === "nao_publicadas"}
@@ -403,6 +546,31 @@ export default function Home() {
                 )}
               </button>
 
+              {/* Nova Aba: Alfabetização (1º e 2º Ano) */}
+              <button
+                role="tab"
+                aria-selected={activeTab === "alfabetizacao"}
+                onClick={() => handleTabChange("alfabetizacao")}
+                className={`inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === "alfabetizacao"
+                    ? "bg-white text-teal-900 shadow-xs font-semibold"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+                }`}
+              >
+                <GraduationCap className={`w-4 h-4 ${activeTab === "alfabetizacao" ? "text-teal-600" : "text-slate-400"}`} />
+                <span>Alfabetização (1º e 2º)</span>
+                <span
+                  className={`text-xs px-1.5 py-0.5 rounded-md font-medium ${
+                    activeTab === "alfabetizacao"
+                      ? "bg-teal-50 text-teal-800 border border-teal-200"
+                      : "bg-slate-200/50 text-slate-500"
+                  }`}
+                >
+                  {kpiData?.total_alfabetizacao ?? 144}
+                </span>
+              </button>
+
+              {/* Aba: Bônus EJA e AEE */}
               <button
                 role="tab"
                 aria-selected={activeTab === "eja_aee"}
@@ -428,20 +596,22 @@ export default function Home() {
                 )}
               </button>
 
+              {/* Aba Renomeada: Pontos de Bônus — DRE */}
               <button
                 role="tab"
-                aria-selected={activeTab === "ideb_dre"}
-                onClick={() => handleTabChange("ideb_dre")}
+                aria-selected={activeTab === "pontos_bonus_dre"}
+                onClick={() => handleTabChange("pontos_bonus_dre")}
                 className={`inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-                  activeTab === "ideb_dre"
+                  activeTab === "pontos_bonus_dre"
                     ? "bg-white text-slate-900 shadow-xs font-semibold"
                     : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
                 }`}
               >
-                <BarChart3 className="w-4 h-4 text-slate-400" />
-                <span>IDEB por DRE</span>
+                <Award className={`w-4 h-4 ${activeTab === "pontos_bonus_dre" ? "text-amber-600" : "text-slate-400"}`} />
+                <span>Pontos de Bônus — DRE</span>
               </button>
 
+              {/* Aba: Gráficos Executivos */}
               <button
                 role="tab"
                 aria-selected={activeTab === "graficos"}
@@ -469,6 +639,16 @@ export default function Home() {
 
           {/* Conteúdo das Abas com Paginação Integrada */}
           <div>
+            {activeTab === "todas" && (
+              <TabTodas
+                data={escolas}
+                loading={tableLoading}
+                onSelectEscola={(cod, etapa) => setSelectedSchool({ codigo: cod, etapa: etapa ?? null })}
+                onClearFilters={handleClearFilters}
+                pagination={paginationProps}
+              />
+            )}
+
             {activeTab === "publicadas" && (
               <TabPublicadas
                 data={escolas}
@@ -489,6 +669,16 @@ export default function Home() {
               />
             )}
 
+            {activeTab === "alfabetizacao" && (
+              <TabAlfabetizacao
+                data={escolas}
+                loading={tableLoading}
+                onSelectEscola={(cod, etapa) => setSelectedSchool({ codigo: cod, etapa: etapa ?? null })}
+                onClearFilters={handleClearFilters}
+                pagination={paginationProps}
+              />
+            )}
+
             {activeTab === "eja_aee" && (
               <TabEjaAee
                 data={ejaData}
@@ -498,8 +688,8 @@ export default function Home() {
               />
             )}
 
-            {activeTab === "ideb_dre" && (
-              <TabIdebDre dre={dre} />
+            {activeTab === "pontos_bonus_dre" && (
+              <TabPontosBonusDre dre={dre} />
             )}
 
             {activeTab === "graficos" && (

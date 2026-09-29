@@ -28,6 +28,8 @@ interface SchoolDetail {
   etapa_ensino: string | null;
   oferta_alfabetizacao?: boolean;
   meta_alfabetizacao_atingida?: boolean;
+  ponto_regiao_integracao?: number | null;
+  ponto_alfabetizacao?: number | null;
   elegivel_16_salario?: boolean;
   motivo_16_salario?: string | null;
   status_premiacao_ri?: string | null;
@@ -141,7 +143,7 @@ function SalarioCard({
       icon: ativo ? <Star className="w-4 h-4 text-amber-500 fill-amber-400" /> : <XCircle className="w-4 h-4 text-slate-300" />,
       bg: ativo ? "bg-amber-50 border-amber-200" : "bg-slate-50 border-slate-200",
       labelColor: ativo ? "text-amber-700" : "text-slate-400",
-      badge: "Prêmio de Destaque Regional (16º Salário)",
+      badge: ativo ? "16º Salário (Destaque RI: +1,0x)" : "16º Salário (Destaque RI)",
     },
   };
 
@@ -300,7 +302,7 @@ export default function SchoolDrawer({ codigoEscola, etapa, onClose }: SchoolDra
                 <TrendingUp className="w-4 h-4 text-[#A71B2B]" />
                 Auditoria de Metas e Rendimento
               </h3>
-              <div className="grid grid-cols-3 gap-2.5">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 <MetricCard
                   label="META IDEB"
                   value={escola.atingiu_meta !== null ? (metaAtingida ? "SIM" : "NÃO") : "—"}
@@ -313,10 +315,16 @@ export default function SchoolDrawer({ codigoEscola, etapa, onClose }: SchoolDra
                   value={formatBonus(escola.ponto_crescimento)}
                   subtitle={salarios.tem15 ? "15º Salário" : undefined}
                 />
+                <MetricCard
+                  label="16º SALÁRIO"
+                  value={salarios.tem16 ? "+1,0x" : "—"}
+                  highlight={salarios.tem16}
+                  subtitle={salarios.tem16 ? "Destaque RI" : undefined}
+                />
                 <MetricCard label="TAXA FLUXO" value={formatBonus(escola.fluxo)} />
 
                 {isAlfabetizacao && (
-                  <div className="col-span-3 p-2.5 rounded-lg border bg-teal-50/60 border-teal-200/60 text-xs flex items-center justify-between">
+                  <div className="col-span-2 sm:col-span-4 p-2.5 rounded-lg border bg-teal-50/60 border-teal-200/60 text-xs flex items-center justify-between">
                     <div>
                       <span className="font-semibold text-teal-900 block">Ciclo de Alfabetização (1º e 2º ano):</span>
                       <span className="text-teal-700 text-[11px]">
@@ -367,7 +375,7 @@ export default function SchoolDrawer({ codigoEscola, etapa, onClose }: SchoolDra
                   ativo={salarios.tem16}
                   descricao={
                     salarios.tem16
-                      ? `Contemplada e Homologada como Destaque na Região de Integração ${escola.regiao_integracao || ""}`
+                      ? `16º Salário (Destaque RI: +1,0x) — Contemplada e Homologada como Destaque na Região de Integração ${escola.regiao_integracao || ""}. Soma +1,0x ao Fator Docente até o teto legal de 3,5x.`
                       : escola.status_premiacao_ri === "NÃO PREMIADA - CRITÉRIO DE DESEMPATE"
                       ? "Escola empatada na Região de Integração, mas não contemplada conforme critérios oficiais de desempate da SEDUC."
                       : "Sem destaque apurado na Região de Integração"

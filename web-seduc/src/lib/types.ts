@@ -17,6 +17,8 @@ export interface Escola {
   atingiu_meta: number | null;
   ponto_crescimento: number | null;
   fluxo: number | null;
+  ponto_regiao_integracao?: number | null;
+  ponto_alfabetizacao?: number | null;
   etapa_ensino: string | null;
   etapa?: string | null;
   /** Alfabetização (1º e 2º ano) - Lei Estadual nº 10.435/2024 */
@@ -28,16 +30,37 @@ export interface Escola {
   status_premiacao_ri?: string | null;
 }
 
+export type TabType =
+  | "todas"
+  | "publicadas"
+  | "nao_publicadas"
+  | "alfabetizacao"
+  | "eja_aee"
+  | "pontos_bonus_dre"
+  | "graficos";
+
 export interface KpiData {
   total_escolas: number;
   escolas_publicadas: number;
   escolas_nao_publicadas: number;
   escolas_eja_aee: number;
+  total_alfabetizacao?: number;
   // Segunda fileira de KPIs analíticos
   total_meta_sim?: number;
   total_crescimento_positivo?: number;
   total_somente_fluxo?: number;
   total_fator_zero?: number;
+}
+
+export interface PontosBonusDreRow {
+  ordem?: number;
+  dre: string;
+  pontos_bonus: number | null;
+  matricula: number | null;
+  bonus_etapa: number | null;
+  bonus_ri: number | null;
+  bonus_total: number | null;
+  matricula_total?: number | null;
 }
 
 export interface FiltrosData {
