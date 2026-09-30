@@ -695,8 +695,10 @@ export default function Home() {
             {activeTab === "graficos" && (
               <TabGraficos
                 dre={dre}
+                municipio={municipio}
                 regiaoIntegracao={regiaoIntegracao}
                 etapa={etapa}
+                onClearFilters={handleClearFilters}
                 onSelectEscola={(cod, etapa) => setSelectedSchool({ codigo: cod, etapa: etapa ?? null })}
               />
             )}

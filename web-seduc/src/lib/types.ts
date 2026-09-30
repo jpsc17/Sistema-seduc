@@ -94,46 +94,28 @@ export const REGIOES_INTEGRACAO_PARA = [
 
 export type RegiaoIntegracao = typeof REGIOES_INTEGRACAO_PARA[number];
 
+export interface ItemComposicaoBonus {
+  name: string;
+  value: number;
+  percent: number;
+  color: string;
+  descricao?: string;
+}
+
 export interface DashboardGraficosData {
-  resumo: {
-    totalEscolas: number;              // 972 (COUNT DISTINCT dim_escolas)
-    publicadas: number;                 // 895
-    naoPublicadas: number;              // 77
-    percentualPublicadas: number;       // ~92.08%
-    percentualNaoPublicadas: number;    // ~7.92%
-    registrosEjaAee: number;            // 924
-    totalRegioesIntegracao: number;     // 12
+  composicao_bonus: ItemComposicaoBonus[];
+  total_pontos: number;
+  detalhes_ideb?: {
+    meta: number;
+    crescimento: number;
+    destaque_ri: number;
+    fluxo: number;
   };
-  situacaoRede: Array<{ nome: string; valor: number; percentual: number }>;
-  metaCrescimento: {
-    metaSim: number;
-    metaNao: number;
-    crescimentoPositivo: number;
-    crescimentoZero: number;
-    matriz: Array<{
-      categoria: string;
-      quantidade: number;
-      percentual: number;
-      impactoSalario: string;
-    }>;
-  };
-  ideb: {
-    porEtapa: Array<{ etapa: string; mediaIdeb: number }>;
-    porDre: Array<{ dre: string; etapa?: string; mediaIdeb: number; fluxo: number }>;
-    proficienciaDre: Array<{ dre: string; lp: number; mat: number }>;
-  };
-  regioesIntegracao: {
-    porRi: Array<{ ri: string; mediaIdeb: number }>;
-    destaques16: Array<{
-      ri: string;
-      etapa: string;
-      escolaMaiorIdeb: { inep: string; nome: string; valor: number };
-      escolaMaiorCrescimento: { inep: string; nome: string; valor: number };
-    }>;
-  };
-  modalidadesEPontos: {
-    ejaAeePorDre: Array<{ dre: string; total: number }>;
-    pontosPorDre: Array<{ dre: string; totalPontos: number }>;
+  filtros_aplicados?: {
+    dre?: string | null;
+    municipio?: string | null;
+    regiao_integracao?: string | null;
+    etapa?: string | null;
   };
 }
 

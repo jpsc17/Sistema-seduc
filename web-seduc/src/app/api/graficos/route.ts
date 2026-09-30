@@ -6,387 +6,251 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const dre = searchParams.get("dre")?.trim() || null;
-  const ri = searchParams.get("regiao_integracao")?.trim() || searchParams.get("regiaoIntegracao")?.trim() || searchParams.get("ri")?.trim() || null;
-  const etapa = searchParams.get("etapa")?.trim() || null;
+  const dre = searchParams.get("dre")?.trim() || "";
+  const municipio = searchParams.get("municipio")?.trim() || "";
+  const ri =
+    searchParams.get("regiao_integracao")?.trim() ||
+    searchParams.get("regiaoIntegracao")?.trim() ||
+    searchParams.get("ri")?.trim() ||
+    "";
+  const etapa = searchParams.get("etapa")?.trim() || "";
 
   const client = await pool.connect();
   try {
-    // 1. Resumo executivo da rede (consultas estritamente parametrizadas no PostgreSQL)
-    const resumoQuery = await client.query(
-      `
-      WITH counts AS (
-        SELECT 
-          (SELECT COUNT(DISTINCT codigo_escola) FROM seduc.vw_escola_resultado_completo 
-           WHERE status_publicacao = 'PUBLICADA'
-             AND ($1::text IS NULL OR UPPER(TRIM(regional_dre)) = UPPER(TRIM($1)))
-             AND ($2::text IS NULL OR UPPER(TRIM(regiao_integracao)) = UPPER(TRIM($2)))
-             AND (
-               $3::text IS NULL
-               OR (($3 ILIKE '%ALFABETIZA%' OR $3 ILIKE '%1%2%') AND (etapa_ensino ILIKE '%ALFABETIZA%' OR etapa_ensino ILIKE '%1%2%' OR oferta_alfabetizacao = TRUE))
-               OR (($3 ILIKE '%INICIAIS%' OR $3 ILIKE '%3%5%') AND (etapa_ensino ILIKE '%INICIAIS%' OR etapa_ensino ILIKE '%3%5%') AND etapa_ensino NOT ILIKE '%ALFABETIZA%' AND etapa_ensino NOT ILIKE '%1%2%')
-               OR (($3 ILIKE '%FINAIS%' OR $3 ILIKE '%6%9%') AND (etapa_ensino ILIKE '%FINAIS%' OR etapa_ensino ILIKE '%6%9%'))
-               OR (($3 ILIKE '%MEDIO%' OR $3 ILIKE '%MÉDIO%') AND (etapa_ensino ILIKE '%MEDIO%' OR etapa_ensino ILIKE '%MÉDIO%'))
-             )) AS publicadas,
-          (SELECT COUNT(DISTINCT codigo_escola) FROM seduc.vw_escola_resultado_completo 
-           WHERE status_publicacao = 'NAO_PUBLICADA'
-             AND ($1::text IS NULL OR UPPER(TRIM(regional_dre)) = UPPER(TRIM($1)))
-             AND ($2::text IS NULL OR UPPER(TRIM(regiao_integracao)) = UPPER(TRIM($2)))
-             AND (
-               $3::text IS NULL
-               OR (($3 ILIKE '%ALFABETIZA%' OR $3 ILIKE '%1%2%') AND (etapa_ensino ILIKE '%ALFABETIZA%' OR etapa_ensino ILIKE '%1%2%' OR oferta_alfabetizacao = TRUE))
-               OR (($3 ILIKE '%INICIAIS%' OR $3 ILIKE '%3%5%') AND (etapa_ensino ILIKE '%INICIAIS%' OR etapa_ensino ILIKE '%3%5%') AND etapa_ensino NOT ILIKE '%ALFABETIZA%' AND etapa_ensino NOT ILIKE '%1%2%')
-               OR (($3 ILIKE '%FINAIS%' OR $3 ILIKE '%6%9%') AND (etapa_ensino ILIKE '%FINAIS%' OR etapa_ensino ILIKE '%6%9%'))
-               OR (($3 ILIKE '%MEDIO%' OR $3 ILIKE '%MÉDIO%') AND (etapa_ensino ILIKE '%MEDIO%' OR etapa_ensino ILIKE '%MÉDIO%'))
-             )) AS nao_publicadas,
-          (SELECT COUNT(*) FROM seduc.seduc_bonus_eja_aee
-           WHERE ($1::text IS NULL OR UPPER(TRIM(regional)) = UPPER(TRIM($1)))) AS registros_eja_aee,
-          (SELECT COUNT(DISTINCT regiao_integracao) FROM seduc.vw_escola_resultado_completo 
-           WHERE regiao_integracao IS NOT NULL
-             AND ($1::text IS NULL OR UPPER(TRIM(regional_dre)) = UPPER(TRIM($1)))
-             AND ($2::text IS NULL OR UPPER(TRIM(regiao_integracao)) = UPPER(TRIM($2)))) AS total_ri
-      )
-      SELECT 
-        publicadas::int,
-        nao_publicadas::int,
-        registros_eja_aee::int,
-        total_ri::int
-      FROM counts;
-      `,
-      [dre, ri, etapa]
+    // ─── 1. Condições de Filtro Base para Escolas Publicadas ───────────────
+    const vwConditions: string[] = ["status_publicacao = 'PUBLICADA'"];
+    const vwParams: (string | number)[] = [];
+    let vwIdx = 1;
+
+    if (dre) {
+      vwConditions.push(`UPPER(TRIM(regional_dre)) = $${vwIdx}`);
+      vwParams.push(dre.toUpperCase());
+      vwIdx++;
+    }
+
+    if (municipio) {
+      vwConditions.push(`UPPER(TRIM(municipio)) = $${vwIdx}`);
+      vwParams.push(municipio.toUpperCase());
+      vwIdx++;
+    }
+
+    if (ri) {
+      vwConditions.push(`UPPER(TRIM(regiao_integracao)) = $${vwIdx}`);
+      vwParams.push(ri.toUpperCase());
+      vwIdx++;
+    }
+
+    // ─── 2. Condições de Filtro para Tabela EJA & AEE ─────────────────────
+    const ejaConditions: string[] = [];
+    const ejaParams: (string | number)[] = [];
+    let ejaIdx = 1;
+
+    if (dre) {
+      ejaConditions.push(`UPPER(TRIM(e.regional)) = $${ejaIdx}`);
+      ejaParams.push(dre.toUpperCase());
+      ejaIdx++;
+    }
+
+    if (municipio) {
+      ejaConditions.push(`UPPER(TRIM(e.municipio)) = $${ejaIdx}`);
+      ejaParams.push(municipio.toUpperCase());
+      ejaIdx++;
+    }
+
+    if (ri) {
+      ejaConditions.push(`UPPER(TRIM(d.regiao_integracao)) = $${ejaIdx}`);
+      ejaParams.push(ri.toUpperCase());
+      ejaIdx++;
+    }
+
+    const whereEja = ejaConditions.length > 0 ? `WHERE ${ejaConditions.join(" AND ")}` : "";
+
+    // ─── 3. Verificação de Filtros de Etapa ────────────────────────────────
+    const etapaUpper = etapa.toUpperCase();
+    const isAlfa = Boolean(
+      etapa &&
+        (etapaUpper.includes("ALFABETIZA") ||
+          etapaUpper.includes("1º E 2º") ||
+          etapaUpper.includes("1 E 2"))
+    );
+    const isIniciais = Boolean(
+      etapa &&
+        (etapaUpper.includes("INICIAIS") ||
+          etapaUpper.includes("3º AO 5º") ||
+          etapaUpper.includes("3 A 5"))
+    );
+    const isFinais = Boolean(
+      etapa &&
+        (etapaUpper.includes("FINAIS") ||
+          etapaUpper.includes("6º AO 9º") ||
+          etapaUpper.includes("6 A 9"))
+    );
+    const isMedio = Boolean(
+      etapa && (etapaUpper.includes("MEDIO") || etapaUpper.includes("MÉDIO"))
     );
 
-    const rRow = resumoQuery.rows[0];
-    const isGlobal = !dre && !ri && !etapa;
-    const pubVal = Number(rRow?.publicadas ?? 895);
-    const naoPubVal = Number(rRow?.nao_publicadas ?? 77);
-
-    const totalEscolas = isGlobal ? 972 : (pubVal + naoPubVal);
-    const publicadas = isGlobal ? 895 : pubVal;
-    const naoPublicadas = isGlobal ? 77 : naoPubVal;
-    const pctPub = totalEscolas > 0 ? Number(((publicadas / totalEscolas) * 100).toFixed(2)) : 0;
-    const pctNaoPub = totalEscolas > 0 ? Number(((naoPublicadas / totalEscolas) * 100).toFixed(2)) : 0;
-
-    const resumo: DashboardGraficosData["resumo"] = {
-      totalEscolas,
-      publicadas,
-      naoPublicadas,
-      percentualPublicadas: pctPub,
-      percentualNaoPublicadas: pctNaoPub,
-      registrosEjaAee: rRow?.registros_eja_aee ?? 924,
-      totalRegioesIntegracao: isGlobal ? 12 : (rRow?.total_ri ?? 1),
+    // ─── 4. Fatia 1: IDEB Regular (Escolas Publicadas) ────────────────────
+    // Regra:
+    // - Meta: se SIM = +1,0, se NÃO = 0,0
+    // - Crescimento: somar valor se > 0
+    // - Destaque em RI: se SIM = +1,0, se NÃO = 0,0
+    // - Fluxo: somar valor numérico apurado de rendimento/fluxo
+    let valIdeb = 0;
+    let idebDetalhes = {
+      meta: 0,
+      crescimento: 0,
+      destaque_ri: 0,
+      fluxo: 0,
     };
 
-    // 2. Situação da Rede (Publicadas vs Não Publicadas)
-    const situacaoRede: DashboardGraficosData["situacaoRede"] = [
-      {
-        nome: "Publicadas",
-        valor: resumo.publicadas,
-        percentual: resumo.percentualPublicadas,
-      },
-      {
-        nome: "Não Publicadas",
-        valor: resumo.naoPublicadas,
-        percentual: resumo.percentualNaoPublicadas,
-      },
-    ];
+    if (!isAlfa) {
+      const idebCond = [...vwConditions, "etapa_ensino NOT ILIKE '%ALFABETIZA%'"];
+      const idebParams = [...vwParams];
+      let idebIdx = vwIdx;
 
-    // 3. Metas (14º Salário) e Crescimento (15º Salário) — Matriz 2x2
-    const metaCrescQuery = await client.query(
-      `
-      WITH escola_pub AS (
+      if (isIniciais) {
+        idebCond.push(`(etapa_ensino ILIKE '%INICIAIS%' OR etapa_ensino ILIKE '%3%5%')`);
+      } else if (isFinais) {
+        idebCond.push(`(etapa_ensino ILIKE '%FINAIS%' OR etapa_ensino ILIKE '%6%9%')`);
+      } else if (isMedio) {
+        idebCond.push(`(etapa_ensino ILIKE '%MEDIO%' OR etapa_ensino ILIKE '%MÉDIO%')`);
+      } else if (etapa) {
+        idebCond.push(`etapa_ensino ILIKE $${idebIdx}`);
+        idebParams.push(`%${etapa.trim()}%`);
+        idebIdx++;
+      }
+
+      const qIdeb = `
         SELECT 
-          codigo_escola,
-          CASE 
-            WHEN MAX(COALESCE(atingiu_meta, 0)) > 0 THEN 'SIM' 
-            ELSE 'NAO' 
-          END AS meta,
-          MAX(COALESCE(ponto_crescimento, 0)) AS crescimento
+          COALESCE(SUM(CASE WHEN atingiu_meta >= 1 THEN 1.0 ELSE 0.0 END), 0.0)::float AS meta,
+          COALESCE(SUM(CASE WHEN ponto_crescimento > 0 THEN ponto_crescimento ELSE 0.0 END), 0.0)::float AS crescimento,
+          COALESCE(SUM(CASE WHEN elegivel_16_salario = TRUE THEN 1.0 ELSE 0.0 END), 0.0)::float AS destaque_ri,
+          COALESCE(SUM(COALESCE(fluxo, 0.0)), 0.0)::float AS fluxo,
+          COALESCE(SUM(
+            (CASE WHEN atingiu_meta >= 1 THEN 1.0 ELSE 0.0 END) +
+            (CASE WHEN ponto_crescimento > 0 THEN ponto_crescimento ELSE 0.0 END) +
+            (CASE WHEN elegivel_16_salario = TRUE THEN 1.0 ELSE 0.0 END) +
+            COALESCE(fluxo, 0.0)
+          ), 0.0)::float AS total
         FROM seduc.vw_escola_resultado_completo
-        WHERE status_publicacao = 'PUBLICADA'
-          AND ($1::text IS NULL OR UPPER(TRIM(regional_dre)) = UPPER(TRIM($1)))
-          AND ($2::text IS NULL OR UPPER(TRIM(regiao_integracao)) = UPPER(TRIM($2)))
-          AND (
-            $3::text IS NULL
-            OR (($3 ILIKE '%ALFABETIZA%' OR $3 ILIKE '%1%2%') AND (etapa_ensino ILIKE '%ALFABETIZA%' OR etapa_ensino ILIKE '%1%2%' OR oferta_alfabetizacao = TRUE))
-            OR (($3 ILIKE '%INICIAIS%' OR $3 ILIKE '%3%5%') AND (etapa_ensino ILIKE '%INICIAIS%' OR etapa_ensino ILIKE '%3%5%') AND etapa_ensino NOT ILIKE '%ALFABETIZA%' AND etapa_ensino NOT ILIKE '%1%2%')
-            OR (($3 ILIKE '%FINAIS%' OR $3 ILIKE '%6%9%') AND (etapa_ensino ILIKE '%FINAIS%' OR etapa_ensino ILIKE '%6%9%'))
-            OR (($3 ILIKE '%MEDIO%' OR $3 ILIKE '%MÉDIO%') AND (etapa_ensino ILIKE '%MEDIO%' OR etapa_ensino ILIKE '%MÉDIO%'))
-          )
-        GROUP BY codigo_escola
-      ),
-      classificacao AS (
-        SELECT
-          codigo_escola,
-          meta,
-          crescimento,
-          CASE 
-            WHEN UPPER(TRIM(meta)) = 'SIM' AND COALESCE(crescimento, 0) > 0 
-              THEN '14º e 15º Salário'
-            WHEN UPPER(TRIM(meta)) != 'SIM' AND COALESCE(crescimento, 0) > 0 
-              THEN 'Apenas 15º (Crescimento)'
-            WHEN UPPER(TRIM(meta)) = 'SIM' AND COALESCE(crescimento, 0) <= 0 
-              THEN 'Apenas 14º (Meta sem Crescimento)'
-            ELSE 'Sem Bonificação Extra'
-          END AS categoria
-        FROM escola_pub
-      )
-      SELECT
-        COUNT(*) AS total,
-        COUNT(CASE WHEN UPPER(TRIM(meta)) = 'SIM' THEN 1 END) AS meta_sim,
-        COUNT(CASE WHEN UPPER(TRIM(meta)) != 'SIM' THEN 1 END) AS meta_nao,
-        COUNT(CASE WHEN COALESCE(crescimento, 0) > 0 THEN 1 END) AS cresc_pos,
-        COUNT(CASE WHEN COALESCE(crescimento, 0) <= 0 THEN 1 END) AS cresc_zero,
-        COUNT(CASE WHEN categoria = '14º e 15º Salário' THEN 1 END) AS ambos,
-        COUNT(CASE WHEN categoria = 'Apenas 15º (Crescimento)' THEN 1 END) AS apenas_cresc,
-        COUNT(CASE WHEN categoria = 'Apenas 14º (Meta sem Crescimento)' THEN 1 END) AS apenas_meta,
-        COUNT(CASE WHEN categoria = 'Sem Bonificação Extra' THEN 1 END) AS nenhum
-      FROM classificacao;
-      `,
-      [dre, ri, etapa]
-    );
+        WHERE ${idebCond.join(" AND ")};
+      `;
 
-    const mc = metaCrescQuery.rows[0];
-    const totalPub = Number(mc?.total || resumo.publicadas || 895);
-    const ambos = Number(mc?.ambos || 0);
-    const apenasCresc = Number(mc?.apenas_cresc || 0);
-    const apenasMeta = Number(mc?.apenas_meta || 0);
-    const nenhum = Number(mc?.nenhum || 0);
+      const resIdeb = await client.query(qIdeb, idebParams);
+      const rowIdeb = resIdeb.rows[0];
+      valIdeb = Number(rowIdeb?.total ?? 0);
+      idebDetalhes = {
+        meta: Number(rowIdeb?.meta ?? 0),
+        crescimento: Number(rowIdeb?.crescimento ?? 0),
+        destaque_ri: Number(rowIdeb?.destaque_ri ?? 0),
+        fluxo: Number(rowIdeb?.fluxo ?? 0),
+      };
+    }
 
-    const metaCrescimento: DashboardGraficosData["metaCrescimento"] = {
-      metaSim: Number(mc?.meta_sim || 0),
-      metaNao: Number(mc?.meta_nao || 0),
-      crescimentoPositivo: Number(mc?.cresc_pos || 0),
-      crescimentoZero: Number(mc?.cresc_zero || 0),
-      matriz: [
-        {
-          categoria: "14º e 15º Salário (Meta + Crescimento)",
-          quantidade: ambos,
-          percentual: Number(((ambos / (totalPub || 1)) * 100).toFixed(2)),
-          impactoSalario: "14º e 15º Salário",
-        },
-        {
-          categoria: "Apenas 15º Salário (Crescimento sem bater Meta)",
-          quantidade: apenasCresc,
-          percentual: Number(((apenasCresc / (totalPub || 1)) * 100).toFixed(2)),
-          impactoSalario: "Apenas 15º Salário",
-        },
-        {
-          categoria: "Apenas 14º Salário (Meta batida com Crescimento nulo)",
-          quantidade: apenasMeta,
-          percentual: Number(((apenasMeta / (totalPub || 1)) * 100).toFixed(2)),
-          impactoSalario: "Apenas 14º Salário",
-        },
-        {
-          categoria: "Sem Bonificação Extra",
-          quantidade: nenhum,
-          percentual: Number(((nenhum / (totalPub || 1)) * 100).toFixed(2)),
-          impactoSalario: "Sem Bonificação Extra",
-        },
-      ],
-    };
+    // ─── 5. Fatia 2: Alfabetização (1º e 2º Ano) ──────────────────────────
+    // Regra: Somatório dos fatores apurados de alfabetização concedidos às turmas de 1º e 2º ano
+    let valAlfa = 0;
+    if (!isIniciais && !isFinais && !isMedio) {
+      const alfaCond = [
+        ...vwConditions,
+        "(etapa_ensino ILIKE '%ALFABETIZA%' OR oferta_alfabetizacao = TRUE)",
+      ];
+      const qAlfa = `
+        SELECT COALESCE(SUM(COALESCE(bonus_professor, ponto_alfabetizacao, 0.0)), 0.0)::float AS total
+        FROM seduc.vw_escola_resultado_completo
+        WHERE ${alfaCond.join(" AND ")};
+      `;
+      const resAlfa = await client.query(qAlfa, vwParams);
+      valAlfa = Number(resAlfa.rows[0]?.total ?? 0);
+    }
 
-    // 4. Desempenho IDEB
-    // 4.1 Por Etapa de Ensino (Escala de 0 a 10)
-    const idebEtapaQuery = await client.query(
-      `
-      SELECT 
-        etapa_ensino AS etapa,
-        ROUND(AVG(NULLIF(ideb, '')::numeric), 2)::float AS "mediaIdeb"
-      FROM seduc.seduc_ideb_dre
-      WHERE ideb IS NOT NULL AND ideb != ''
-        AND ($1::text IS NULL OR UPPER(TRIM(dre)) = UPPER(TRIM($1)))
-      GROUP BY etapa_ensino
-      ORDER BY "mediaIdeb" DESC;
-      `,
-      [dre]
-    );
+    // ─── 6. Fatia 3: EJA e Fatia 4: AEE ───────────────────────────────────
+    // Regra EJA: Total EJA = ∑ (EJA Iniciais + EJA Finais + EJA Médio)
+    // Regra AEE: Somatório integral dos pontos da coluna oficial de AEE
+    let valEja = 0;
+    let valAee = 0;
 
-    // 4.2 Por Regional DRE e Etapa (permite alternar entre Todas, Anos Iniciais, Anos Finais e Ensino Médio)
-    const idebDreQuery = await client.query(
-      `
-      SELECT 
-        UPPER(TRIM(dre)) AS dre,
-        etapa_ensino AS etapa,
-        ROUND(NULLIF(ideb, '')::numeric, 2)::float AS "mediaIdeb",
-        ROUND(fluxo_tempo_medio, 2)::float AS fluxo
-      FROM seduc.seduc_ideb_dre
-      WHERE ideb IS NOT NULL AND ideb != ''
-        AND ($1::text IS NULL OR UPPER(TRIM(dre)) = UPPER(TRIM($1)))
-      ORDER BY "mediaIdeb" DESC, dre ASC;
-      `,
-      [dre]
-    );
+    if (!isAlfa) {
+      let ejaExpr =
+        "COALESCE(SUM(COALESCE(e.eja_fundamental_iniciais, 0.0) + COALESCE(e.eja_fundamental_finais, 0.0) + COALESCE(e.eja_medio, 0.0)), 0.0)::float";
+      let aeeExpr =
+        "COALESCE(SUM(COALESCE(e.atendimento_especializado_aee, 0.0)), 0.0)::float";
 
-    // 4.3 Proficiência DRE (Língua Portuguesa e Matemática separadas na escala SAEB 200-300)
-    const proficienciaDreQuery = await client.query(
-      `
-      SELECT 
-        UPPER(TRIM(dre)) AS dre,
-        ROUND(AVG(desempenho_lingua_portuguesa), 1)::float AS lp,
-        ROUND(AVG(desempenho_matematica), 1)::float AS mat
-      FROM seduc.seduc_ideb_dre
-      WHERE desempenho_lingua_portuguesa IS NOT NULL
-        AND ($1::text IS NULL OR UPPER(TRIM(dre)) = UPPER(TRIM($1)))
-      GROUP BY UPPER(TRIM(dre))
-      ORDER BY UPPER(TRIM(dre)) ASC;
-      `,
-      [dre]
-    );
+      if (isIniciais) {
+        ejaExpr = "COALESCE(SUM(COALESCE(e.eja_fundamental_iniciais, 0.0)), 0.0)::float";
+        aeeExpr = "0.0::float";
+      } else if (isFinais) {
+        ejaExpr = "COALESCE(SUM(COALESCE(e.eja_fundamental_finais, 0.0)), 0.0)::float";
+        aeeExpr = "0.0::float";
+      } else if (isMedio) {
+        ejaExpr = "COALESCE(SUM(COALESCE(e.eja_medio, 0.0)), 0.0)::float";
+        aeeExpr = "0.0::float";
+      }
 
-    // 5. Regiões de Integração (RI) e Destaques do 16º Salário
-    // 5.1 IDEB Médio por Região de Integração (12 RIs)
-    const riIdebQuery = await client.query(
-      `
-      WITH dre_ri AS (
-        SELECT DISTINCT UPPER(TRIM(regional_dre)) AS dre, UPPER(TRIM(regiao_integracao)) AS ri
-        FROM seduc.dim_escolas
-        WHERE regional_dre IS NOT NULL AND regiao_integracao IS NOT NULL
-      )
-      SELECT 
-        d.ri,
-        ROUND(AVG(NULLIF(i.ideb, '')::numeric), 2)::float AS "mediaIdeb"
-      FROM seduc.seduc_ideb_dre i
-      JOIN dre_ri d ON UPPER(TRIM(i.dre)) = d.dre
-      WHERE i.ideb IS NOT NULL AND i.ideb != ''
-        AND ($1::text IS NULL OR d.ri = UPPER(TRIM($1)))
-      GROUP BY d.ri
-      ORDER BY "mediaIdeb" DESC;
-      `,
-      [ri]
-    );
-
-    // 5.2 Destaques do 16º Salário (Melhor Desempenho e Maior Crescimento por RI e Etapa)
-    const destaques16Query = await client.query(
-      `
-      WITH ranked_desempenho AS (
+      const qEja = `
         SELECT 
-          regiao_integracao,
-          etapa_ensino,
-          codigo_escola,
-          nome_escola,
-          bonus_professor,
-          ROW_NUMBER() OVER (
-            PARTITION BY regiao_integracao, etapa_ensino 
-            ORDER BY bonus_professor DESC, codigo_escola
-          ) AS rk
-        FROM seduc.vw_escola_resultado_completo
-        WHERE elegivel_16_salario = true 
-          AND (motivo_16_salario = 'Melhor Desempenho RI' OR bonus_professor > 0)
-          AND ($1::text IS NULL OR UPPER(TRIM(regional_dre)) = UPPER(TRIM($1)))
-          AND ($2::text IS NULL OR UPPER(TRIM(regiao_integracao)) = UPPER(TRIM($2)))
-          AND (
-            $3::text IS NULL
-            OR (($3 ILIKE '%ALFABETIZA%' OR $3 ILIKE '%1%2%') AND (etapa_ensino ILIKE '%ALFABETIZA%' OR etapa_ensino ILIKE '%1%2%' OR oferta_alfabetizacao = TRUE))
-            OR (($3 ILIKE '%INICIAIS%' OR $3 ILIKE '%3%5%') AND (etapa_ensino ILIKE '%INICIAIS%' OR etapa_ensino ILIKE '%3%5%') AND etapa_ensino NOT ILIKE '%ALFABETIZA%' AND etapa_ensino NOT ILIKE '%1%2%')
-            OR (($3 ILIKE '%FINAIS%' OR $3 ILIKE '%6%9%') AND (etapa_ensino ILIKE '%FINAIS%' OR etapa_ensino ILIKE '%6%9%'))
-            OR (($3 ILIKE '%MEDIO%' OR $3 ILIKE '%MÉDIO%') AND (etapa_ensino ILIKE '%MEDIO%' OR etapa_ensino ILIKE '%MÉDIO%'))
-          )
-      ),
-      ranked_crescimento AS (
-        SELECT 
-          regiao_integracao,
-          etapa_ensino,
-          codigo_escola,
-          nome_escola,
-          ponto_crescimento,
-          ROW_NUMBER() OVER (
-            PARTITION BY regiao_integracao, etapa_ensino 
-            ORDER BY ponto_crescimento DESC, codigo_escola
-          ) AS rk
-        FROM seduc.vw_escola_resultado_completo
-        WHERE elegivel_16_salario = true 
-          AND (motivo_16_salario = 'Maior Crescimento RI' OR ponto_crescimento > 0)
-          AND ($1::text IS NULL OR UPPER(TRIM(regional_dre)) = UPPER(TRIM($1)))
-          AND ($2::text IS NULL OR UPPER(TRIM(regiao_integracao)) = UPPER(TRIM($2)))
-          AND (
-            $3::text IS NULL
-            OR (($3 ILIKE '%ALFABETIZA%' OR $3 ILIKE '%1%2%') AND (etapa_ensino ILIKE '%ALFABETIZA%' OR etapa_ensino ILIKE '%1%2%' OR oferta_alfabetizacao = TRUE))
-            OR (($3 ILIKE '%INICIAIS%' OR $3 ILIKE '%3%5%') AND (etapa_ensino ILIKE '%INICIAIS%' OR etapa_ensino ILIKE '%3%5%') AND etapa_ensino NOT ILIKE '%ALFABETIZA%' AND etapa_ensino NOT ILIKE '%1%2%')
-            OR (($3 ILIKE '%FINAIS%' OR $3 ILIKE '%6%9%') AND (etapa_ensino ILIKE '%FINAIS%' OR etapa_ensino ILIKE '%6%9%'))
-            OR (($3 ILIKE '%MEDIO%' OR $3 ILIKE '%MÉDIO%') AND (etapa_ensino ILIKE '%MEDIO%' OR etapa_ensino ILIKE '%MÉDIO%'))
-          )
-      )
-      SELECT 
-        COALESCE(d.regiao_integracao, c.regiao_integracao) AS ri,
-        COALESCE(d.etapa_ensino, c.etapa_ensino) AS etapa,
-        COALESCE(d.codigo_escola, '') AS inep_ideb,
-        COALESCE(d.nome_escola, '') AS nome_ideb,
-        COALESCE(d.bonus_professor, 0)::float AS valor_ideb,
-        COALESCE(c.codigo_escola, '') AS inep_cresc,
-        COALESCE(c.nome_escola, '') AS nome_cresc,
-        COALESCE(c.ponto_crescimento, 0)::float AS valor_cresc
-      FROM ranked_desempenho d
-      FULL OUTER JOIN ranked_crescimento c 
-        ON d.regiao_integracao = c.regiao_integracao 
-       AND d.etapa_ensino = c.etapa_ensino 
-       AND d.rk = 1 AND c.rk = 1
-      WHERE d.rk = 1 OR c.rk = 1
-      ORDER BY ri, etapa;
-      `,
-      [dre, ri, etapa]
-    );
+          ${ejaExpr} AS total_eja,
+          ${aeeExpr} AS total_aee
+        FROM seduc.seduc_bonus_eja_aee e
+        LEFT JOIN seduc.dim_escolas d ON d.codigo_escola = e.codigo_escola
+        ${whereEja};
+      `;
+      const resEja = await client.query(qEja, ejaParams);
+      valEja = Number(resEja.rows[0]?.total_eja ?? 0);
+      valAee = Number(resEja.rows[0]?.total_aee ?? 0);
+    }
 
-    const destaques16 = destaques16Query.rows.map((row) => ({
-      ri: row.ri,
-      etapa: row.etapa,
-      escolaMaiorIdeb: {
-        inep: row.inep_ideb,
-        nome: row.nome_ideb,
-        valor: row.valor_ideb,
-      },
-      escolaMaiorCrescimento: {
-        inep: row.inep_cresc,
-        nome: row.nome_cresc,
-        valor: row.valor_cresc,
-      },
-    }));
+    // ─── 7. Consolidação Final dos Pontos e Percentuais ───────────────────
+    const totalPontos = Number((valIdeb + valAlfa + valEja + valAee).toFixed(2));
 
-    // 6. Modalidades e Pontos
-    // 6.1 EJA e AEE por Regional DRE
-    const ejaAeeDreQuery = await client.query(
-      `
-      SELECT 
-        UPPER(TRIM(regional)) AS dre,
-        COUNT(*)::int AS total
-      FROM seduc.seduc_bonus_eja_aee
-      WHERE ($1::text IS NULL OR UPPER(TRIM(regional)) = UPPER(TRIM($1)))
-      GROUP BY UPPER(TRIM(regional))
-      ORDER BY total DESC;
-      `,
-      [dre]
-    );
-
-    // 6.2 Pontos de Bônus Institucional por Regional DRE
-    const pontosDreQuery = await client.query(
-      `
-      SELECT 
-        UPPER(TRIM(dre)) AS dre,
-        ROUND(bonus_total, 2)::float AS "totalPontos"
-      FROM seduc.seduc_pontos_bonus_dre
-      WHERE dre IS NOT NULL
-        AND ($1::text IS NULL OR UPPER(TRIM(dre)) = UPPER(TRIM($1)))
-      ORDER BY bonus_total DESC NULLS LAST;
-      `,
-      [dre]
-    );
+    const pctIdeb = totalPontos > 0 ? Number(((valIdeb / totalPontos) * 100).toFixed(1)) : 0;
+    const pctAlfa = totalPontos > 0 ? Number(((valAlfa / totalPontos) * 100).toFixed(1)) : 0;
+    const pctEja = totalPontos > 0 ? Number(((valEja / totalPontos) * 100).toFixed(1)) : 0;
+    const pctAee = totalPontos > 0 ? Number(((valAee / totalPontos) * 100).toFixed(1)) : 0;
 
     const data: DashboardGraficosData = {
-      resumo,
-      situacaoRede,
-      metaCrescimento,
-      ideb: {
-        porEtapa: idebEtapaQuery.rows,
-        porDre: idebDreQuery.rows,
-        proficienciaDre: proficienciaDreQuery.rows,
+      composicao_bonus: [
+        {
+          name: "IDEB (Regular)",
+          value: Number(valIdeb.toFixed(2)),
+          percent: pctIdeb,
+          color: "#0284c7",
+          descricao: "Meta pactuada (14º), Crescimento (15º), Destaque RI (16º) e Fluxo",
+        },
+        {
+          name: "Alfabetização",
+          value: Number(valAlfa.toFixed(2)),
+          percent: pctAlfa,
+          color: "#10b981",
+          descricao: "Fatores apurados para turmas de 1º e 2º ano do Ensino Fundamental",
+        },
+        {
+          name: "EJA",
+          value: Number(valEja.toFixed(2)),
+          percent: pctEja,
+          color: "#f59e0b",
+          descricao: "Educação de Jovens e Adultos (Iniciais + Finais + Médio)",
+        },
+        {
+          name: "AEE",
+          value: Number(valAee.toFixed(2)),
+          percent: pctAee,
+          color: "#8b5cf6",
+          descricao: "Atendimento Educacional Especializado",
+        },
+      ],
+      total_pontos: totalPontos,
+      detalhes_ideb: {
+        meta: Number(idebDetalhes.meta.toFixed(2)),
+        crescimento: Number(idebDetalhes.crescimento.toFixed(2)),
+        destaque_ri: Number(idebDetalhes.destaque_ri.toFixed(2)),
+        fluxo: Number(idebDetalhes.fluxo.toFixed(2)),
       },
-      regioesIntegracao: {
-        porRi: riIdebQuery.rows,
-        destaques16,
-      },
-      modalidadesEPontos: {
-        ejaAeePorDre: ejaAeeDreQuery.rows,
-        pontosPorDre: pontosDreQuery.rows,
+      filtros_aplicados: {
+        dre: dre || null,
+        municipio: municipio || null,
+        regiao_integracao: ri || null,
+        etapa: etapa || null,
       },
     };
 
@@ -394,7 +258,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Erro na rota /api/graficos:", error);
     return NextResponse.json(
-      { error: "Erro ao gerar indicadores gráficos consolidados" },
+      { error: "Erro ao gerar indicadores gráficos de bonificação" },
       { status: 500 }
     );
   } finally {
