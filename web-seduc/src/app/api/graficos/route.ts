@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
-import type { DashboardGraficosData } from "@/lib/types";
+import type { DashboardGraficosData, ModalidadeBonus, ItemComposicaoBonus } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -89,12 +89,12 @@ export async function GET(request: NextRequest) {
       etapa && (etapaUpper.includes("MEDIO") || etapaUpper.includes("MÉDIO"))
     );
 
-    // ─── 4. Fatia 1: IDEB Regular (Escolas Publicadas) ────────────────────
+    // ─── 4. Modalidade 1: IDEB (Regular / Escolas Publicadas) ──────────────
     // Regra:
-    // - Meta: se SIM = +1,0, se NÃO = 0,0
-    // - Crescimento: somar valor se > 0
-    // - Destaque em RI: se SIM = +1,0, se NÃO = 0,0
-    // - Fluxo: somar valor numérico apurado de rendimento/fluxo
+    // - 14º Meta pactuada: se SIM = +1,0, se NÃO = 0,0
+    // - 15º Crescimento: valor numérico (> 0)
+    // - 16º Destaque RI: se SIM = +1,0, se NÃO/— = 0,0
+    // - Fluxo (Rendimento): valor numérico apurado
     let valIdeb = 0;
     let idebDetalhes = {
       meta: 0,
@@ -147,8 +147,7 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    // ─── 5. Fatia 2: Alfabetização (1º e 2º Ano) ──────────────────────────
-    // Regra: Somatório dos fatores apurados de alfabetização concedidos às turmas de 1º e 2º ano
+    // ─── 5. Modalidade 2: Alfabetização (1º e 2º Ano) ──────────────────────
     let valAlfa = 0;
     if (!isIniciais && !isFinais && !isMedio) {
       const alfaCond = [
@@ -164,9 +163,7 @@ export async function GET(request: NextRequest) {
       valAlfa = Number(resAlfa.rows[0]?.total ?? 0);
     }
 
-    // ─── 6. Fatia 3: EJA e Fatia 4: AEE ───────────────────────────────────
-    // Regra EJA: Total EJA = ∑ (EJA Iniciais + EJA Finais + EJA Médio)
-    // Regra AEE: Somatório integral dos pontos da coluna oficial de AEE
+    // ─── 6. Modalidades 3 & 4: EJA e AEE ─────────────────────────────────
     let valEja = 0;
     let valAee = 0;
 
@@ -200,46 +197,72 @@ export async function GET(request: NextRequest) {
       valAee = Number(resEja.rows[0]?.total_aee ?? 0);
     }
 
-    // ─── 7. Consolidação Final dos Pontos e Percentuais ───────────────────
-    const totalPontos = Number((valIdeb + valAlfa + valEja + valAee).toFixed(2));
+    // ─── 7. Consolidação Final ────────────────────────────────────────────
+    const totalRede = Number((valIdeb + valAlfa + valEja + valAee).toFixed(2));
 
-    const pctIdeb = totalPontos > 0 ? Number(((valIdeb / totalPontos) * 100).toFixed(1)) : 0;
-    const pctAlfa = totalPontos > 0 ? Number(((valAlfa / totalPontos) * 100).toFixed(1)) : 0;
-    const pctEja = totalPontos > 0 ? Number(((valEja / totalPontos) * 100).toFixed(1)) : 0;
-    const pctAee = totalPontos > 0 ? Number(((valAee / totalPontos) * 100).toFixed(1)) : 0;
+    const pctIdeb = totalRede > 0 ? Number(((valIdeb / totalRede) * 100).toFixed(1)) : 0;
+    const pctAee = totalRede > 0 ? Number(((valAee / totalRede) * 100).toFixed(1)) : 0;
+    const pctEja = totalRede > 0 ? Number(((valEja / totalRede) * 100).toFixed(1)) : 0;
+    const pctAlfa = totalRede > 0 ? Number(((valAlfa / totalRede) * 100).toFixed(1)) : 0;
+
+    const modalidades: ModalidadeBonus[] = [
+      {
+        id: "ideb",
+        nome: "IDEB (Regular)",
+        valor: Number(valIdeb.toFixed(2)),
+        percent: pctIdeb,
+        color: "#0284c7",
+        descricao:
+          "Meta pactuada (14º), crescimento (15º), destaque RI (16º) e rendimento escolar.",
+        detalhes: {
+          meta: Number(idebDetalhes.meta.toFixed(2)),
+          crescimento: Number(idebDetalhes.crescimento.toFixed(2)),
+          destaque_ri: Number(idebDetalhes.destaque_ri.toFixed(2)),
+          fluxo: Number(idebDetalhes.fluxo.toFixed(2)),
+        },
+      },
+      {
+        id: "aee",
+        nome: "AEE",
+        valor: Number(valAee.toFixed(2)),
+        percent: pctAee,
+        color: "#8b5cf6",
+        descricao: "Atendimento Educacional Especializado apurado por unidade.",
+      },
+      {
+        id: "eja",
+        nome: "EJA",
+        valor: Number(valEja.toFixed(2)),
+        percent: pctEja,
+        color: "#f59e0b",
+        descricao: "Educação de Jovens e Adultos (Anos Iniciais, Finais e Médio).",
+      },
+      {
+        id: "alfabetizacao",
+        nome: "Alfabetização",
+        valor: Number(valAlfa.toFixed(2)),
+        percent: pctAlfa,
+        color: "#10b981",
+        descricao: "Ciclo de alfabetização (1º e 2º ano) com metas escalonadas.",
+      },
+    ];
+
+    const composicaoCompat: ItemComposicaoBonus[] = modalidades.map((m) => ({
+      name: m.nome,
+      value: m.valor,
+      percent: m.percent ?? 0,
+      color: m.color ?? "#0284c7",
+      descricao: m.descricao,
+    }));
 
     const data: DashboardGraficosData = {
-      composicao_bonus: [
-        {
-          name: "IDEB (Regular)",
-          value: Number(valIdeb.toFixed(2)),
-          percent: pctIdeb,
-          color: "#0284c7",
-          descricao: "Meta pactuada (14º), Crescimento (15º), Destaque RI (16º) e Fluxo",
-        },
-        {
-          name: "Alfabetização",
-          value: Number(valAlfa.toFixed(2)),
-          percent: pctAlfa,
-          color: "#10b981",
-          descricao: "Fatores apurados para turmas de 1º e 2º ano do Ensino Fundamental",
-        },
-        {
-          name: "EJA",
-          value: Number(valEja.toFixed(2)),
-          percent: pctEja,
-          color: "#f59e0b",
-          descricao: "Educação de Jovens e Adultos (Iniciais + Finais + Médio)",
-        },
-        {
-          name: "AEE",
-          value: Number(valAee.toFixed(2)),
-          percent: pctAee,
-          color: "#8b5cf6",
-          descricao: "Atendimento Educacional Especializado",
-        },
-      ],
-      total_pontos: totalPontos,
+      total_rede: totalRede,
+      exercicio: "2025",
+      base_legal: "Lei Estadual nº 10.435/2024",
+      modalidades,
+      // Retrocompatibilidade
+      total_pontos: totalRede,
+      composicao_bonus: composicaoCompat,
       detalhes_ideb: {
         meta: Number(idebDetalhes.meta.toFixed(2)),
         crescimento: Number(idebDetalhes.crescimento.toFixed(2)),

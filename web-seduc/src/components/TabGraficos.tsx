@@ -2,25 +2,25 @@
 
 import { useEffect, useState, useMemo } from "react";
 import {
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Tooltip,
-} from "recharts";
-import {
   PieChart as PieIcon,
   BookOpen,
   Award,
   Users,
   HeartHandshake,
-  Layers,
+  ChevronDown,
+  ChevronUp,
   Filter,
   RefreshCw,
   AlertCircle,
   HelpCircle,
+  Sparkles,
+  TrendingUp,
+  Target,
+  Star,
+  Activity,
+  ArrowRight,
 } from "lucide-react";
-import type { DashboardGraficosData, ItemComposicaoBonus } from "@/lib/types";
+import type { DashboardGraficosData, ModalidadeBonus } from "@/lib/types";
 
 interface TabGraficosProps {
   dre?: string;
@@ -30,6 +30,104 @@ interface TabGraficosProps {
   onClearFilters?: () => void;
   onSelectEscola?: (codigo: string, etapa?: string | null) => void;
 }
+
+// ─── Funções Matemáticas de SVG para Arcos do Donut ────────────────────────
+function polarToCartesian(
+  centerX: number,
+  centerY: number,
+  radius: number,
+  angleInDegrees: number
+) {
+  const angleInRadians = ((angleInDegrees - 90) * Math.PI) / 180.0;
+  return {
+    x: centerX + radius * Math.cos(angleInRadians),
+    y: centerY + radius * Math.sin(angleInRadians),
+  };
+}
+
+function describeArc(
+  x: number,
+  y: number,
+  innerRadius: number,
+  outerRadius: number,
+  startAngle: number,
+  endAngle: number
+) {
+  const safeEndAngle =
+    endAngle - startAngle >= 359.999 ? startAngle + 359.999 : endAngle;
+  const startOuter = polarToCartesian(x, y, outerRadius, startAngle);
+  const endOuter = polarToCartesian(x, y, outerRadius, safeEndAngle);
+  const startInner = polarToCartesian(x, y, innerRadius, safeEndAngle);
+  const endInner = polarToCartesian(x, y, innerRadius, startAngle);
+
+  const largeArcFlag = safeEndAngle - startAngle <= 180 ? "0" : "1";
+
+  return [
+    "M",
+    startOuter.x,
+    startOuter.y,
+    "A",
+    outerRadius,
+    outerRadius,
+    0,
+    largeArcFlag,
+    1,
+    endOuter.x,
+    endOuter.y,
+    "L",
+    startInner.x,
+    startInner.y,
+    "A",
+    innerRadius,
+    innerRadius,
+    0,
+    largeArcFlag,
+    0,
+    endInner.x,
+    endInner.y,
+    "Z",
+  ].join(" ");
+}
+
+const MODALIDADE_CONFIGS: Record<
+  string,
+  {
+    icon: typeof Award;
+    color: string;
+    bgBadge: string;
+    borderBadge: string;
+    textBadge: string;
+  }
+> = {
+  ideb: {
+    icon: Award,
+    color: "#0284c7",
+    bgBadge: "bg-sky-50",
+    borderBadge: "border-sky-200",
+    textBadge: "text-sky-700",
+  },
+  aee: {
+    icon: HeartHandshake,
+    color: "#8b5cf6",
+    bgBadge: "bg-purple-50",
+    borderBadge: "border-purple-200",
+    textBadge: "text-purple-700",
+  },
+  eja: {
+    icon: Users,
+    color: "#f59e0b",
+    bgBadge: "bg-amber-50",
+    borderBadge: "border-amber-200",
+    textBadge: "text-amber-700",
+  },
+  alfabetizacao: {
+    icon: BookOpen,
+    color: "#10b981",
+    bgBadge: "bg-emerald-50",
+    borderBadge: "border-emerald-200",
+    textBadge: "text-emerald-700",
+  },
+};
 
 export default function TabGraficos({
   dre = "",
@@ -41,12 +139,12 @@ export default function TabGraficos({
   const [data, setData] = useState<DashboardGraficosData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeIndex, setActiveIndex] = useState<number | null>(null);
-  const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  // Estado interativo do Donut SVG
+  const [hoveredSliceId, setHoveredSliceId] = useState<string | null>(null);
+
+  // Estado expansível do micrográfico do IDEB
+  const [idebExpanded, setIdebExpanded] = useState<boolean>(true);
 
   const fetchData = async () => {
     try {
@@ -82,20 +180,121 @@ export default function TabGraficos({
     dre.trim() || municipio.trim() || regiaoIntegracao.trim() || etapa.trim()
   );
 
-  const activeSlice: ItemComposicaoBonus | null = useMemo(() => {
-    if (activeIndex !== null && data?.composicao_bonus[activeIndex]) {
-      return data.composicao_bonus[activeIndex];
-    }
-    return null;
-  }, [activeIndex, data]);
+  const modalidades = useMemo(() => data?.modalidades || [], [data]);
+  const totalRede = useMemo(() => data?.total_rede ?? 0, [data]);
+
+  // Cálculo matemático dos ângulos SVG para cada fatia
+  const slicesWithAngles = useMemo(() => {
+    if (!modalidades.length || totalRede === 0) return [];
+
+    let currentAngle = 0;
+    const gapAngle = modalidades.length > 1 ? 1.5 : 0;
+    const totalGaps = gapAngle * modalidades.length;
+    const availableDegrees = Math.max(0, 360 - totalGaps);
+
+    return modalidades.map((mod) => {
+      const share = mod.valor / totalRede;
+      const sliceDegrees = share * availableDegrees;
+      const startAngle = currentAngle;
+      const endAngle = currentAngle + sliceDegrees;
+      currentAngle = endAngle + gapAngle;
+
+      const percentCalc = Number((share * 100).toFixed(1));
+      const config = MODALIDADE_CONFIGS[mod.id] || {
+        icon: Award,
+        color: mod.color || "#0284c7",
+        bgBadge: "bg-slate-50",
+        borderBadge: "border-slate-200",
+        textBadge: "text-slate-700",
+      };
+
+      return {
+        ...mod,
+        percent: mod.percent ?? percentCalc,
+        startAngle,
+        endAngle,
+        config,
+      };
+    });
+  }, [modalidades, totalRede]);
+
+  const activeSlice = useMemo(() => {
+    if (!hoveredSliceId) return null;
+    return slicesWithAngles.find((s) => s.id === hoveredSliceId) || null;
+  }, [hoveredSliceId, slicesWithAngles]);
+
+  const idebItem = useMemo(() => {
+    return modalidades.find((m) => m.id === "ideb");
+  }, [modalidades]);
+
+  const idebDetalhes = idebItem?.detalhes;
+
+  // Cálculos do micrográfico de composição do IDEB
+  const idebSubComponents = useMemo(() => {
+    if (!idebDetalhes || !idebItem || idebItem.valor === 0) return [];
+    const idebTotal = idebItem.valor;
+
+    const components = [
+      {
+        id: "meta",
+        label: "14º Salário (Meta Pactuada)",
+        shortLabel: "14º Meta",
+        subtext: "Cumprimento integral ou parcial da meta oficial pactuada",
+        value: idebDetalhes.meta,
+        pctOfIdeb: Number(((idebDetalhes.meta / idebTotal) * 100).toFixed(1)),
+        pctOfRede: totalRede > 0 ? Number(((idebDetalhes.meta / totalRede) * 100).toFixed(1)) : 0,
+        color: "#059669", // Emerald
+        icon: Target,
+        badgeText: "+1,0 ponto",
+      },
+      {
+        id: "crescimento",
+        label: "15º Salário (Crescimento Pedagógico)",
+        shortLabel: "15º Crescimento",
+        subtext: "Avanço no indicador em relação ao ciclo anterior (> 0)",
+        value: idebDetalhes.crescimento,
+        pctOfIdeb: Number(((idebDetalhes.crescimento / idebTotal) * 100).toFixed(1)),
+        pctOfRede: totalRede > 0 ? Number(((idebDetalhes.crescimento / totalRede) * 100).toFixed(1)) : 0,
+        color: "#2563eb", // Blue
+        icon: TrendingUp,
+        badgeText: "Taxa apurada",
+      },
+      {
+        id: "destaque_ri",
+        label: "16º Salário (Destaque Regional por RI)",
+        shortLabel: "16º Destaque RI",
+        subtext: "Prêmio de excelência regional por Região de Integração",
+        value: idebDetalhes.destaque_ri,
+        pctOfIdeb: Number(((idebDetalhes.destaque_ri / idebTotal) * 100).toFixed(1)),
+        pctOfRede: totalRede > 0 ? Number(((idebDetalhes.destaque_ri / totalRede) * 100).toFixed(1)) : 0,
+        color: "#d97706", // Amber
+        icon: Star,
+        badgeText: "+1,0 bônus",
+      },
+      {
+        id: "fluxo",
+        label: "Rendimento Escolar (Fluxo)",
+        shortLabel: "Fluxo",
+        subtext: "Componente de aprovação e permanência escolar da unidade",
+        value: idebDetalhes.fluxo,
+        pctOfIdeb: Number(((idebDetalhes.fluxo / idebTotal) * 100).toFixed(1)),
+        pctOfRede: totalRede > 0 ? Number(((idebDetalhes.fluxo / totalRede) * 100).toFixed(1)) : 0,
+        color: "#475569", // Slate
+        icon: Activity,
+        badgeText: "Índice censitário",
+      },
+    ];
+
+    return components;
+  }, [idebDetalhes, idebItem, totalRede]);
 
   if (loading && !data) {
     return (
-      <div className="space-y-6 animate-pulse">
-        <div className="h-28 bg-slate-100 rounded-2xl border border-slate-200" />
+      <div className="space-y-6 animate-pulse" aria-busy="true">
+        <div className="h-32 bg-slate-100 rounded-2xl border border-slate-200" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-32 bg-slate-100 rounded-xl border border-slate-200" />
+            <div key={i} className="h-28 bg-slate-100 rounded-xl border border-slate-200" />
           ))}
         </div>
         <div className="h-96 bg-slate-100 rounded-2xl border border-slate-200" />
@@ -111,7 +310,7 @@ export default function TabGraficos({
         </div>
         <div>
           <h3 className="text-base font-semibold text-slate-800">
-            Não foi possível carregar a consolidação gráfica
+            Falha ao carregar consolidação analítica da bonificação
           </h3>
           <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">{error}</p>
         </div>
@@ -120,40 +319,38 @@ export default function TabGraficos({
           className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
         >
           <RefreshCw className="w-4 h-4" />
-          Tentar novamente
+          Recarregar dados
         </button>
       </div>
     );
   }
 
-  const composicao = data?.composicao_bonus || [];
-  const totalPontos = data?.total_pontos ?? 0;
-  const detalhesIdeb = data?.detalhes_ideb;
-
   return (
     <div className="space-y-6">
-      {/* ─── 1. Header Card Executivo ────────────────────────────────────────── */}
-      <section className="bg-gradient-to-r from-slate-900 via-slate-850 to-indigo-950 text-white rounded-2xl p-6 sm:p-7 shadow-sm border border-slate-800 relative overflow-hidden">
-        <div className="absolute right-0 top-0 translate-x-12 -translate-y-8 w-72 h-72 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute right-40 bottom-0 translate-y-12 w-60 h-60 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+      {/* ─── 1. Header Card Institucional ────────────────────────────────────── */}
+      <section className="bg-gradient-to-r from-slate-900 via-slate-850 to-indigo-950 text-white rounded-2xl p-6 sm:p-7 shadow-xs border border-slate-800 relative overflow-hidden">
+        <div className="absolute right-0 top-0 translate-x-12 -translate-y-8 w-80 h-80 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute right-48 bottom-0 translate-y-12 w-64 h-64 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1.5 max-w-2xl">
             <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-white/10 text-sky-300 border border-white/10 backdrop-blur-xs">
               <PieIcon className="w-3.5 h-3.5" />
-              <span>Painel Executivo de Bonificação</span>
+              <span>Exercício {data?.exercicio || "2025"} • Relatório Executivo</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
               Distribuição Global da Bonificação
             </h2>
             <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
               Consolidação analítica do volume total de pontos apurados na rede estadual por
-              modalidade de ensino, conforme os critérios da{" "}
-              <strong className="text-white font-semibold">Lei Estadual nº 10.435/2024</strong>.
+              modalidade, em estrita conformidade com a{" "}
+              <strong className="text-white font-semibold">
+                {data?.base_legal || "Lei Estadual nº 10.435/2024"}
+              </strong>
+              .
             </p>
           </div>
 
-          {/* Indicador de Filtro Ativo */}
           <div className="flex flex-col sm:items-end gap-2 shrink-0">
             {hasActiveFilters ? (
               <div className="flex flex-wrap items-center gap-1.5 bg-white/10 px-3 py-2 rounded-xl border border-white/10 text-xs">
@@ -171,405 +368,435 @@ export default function TabGraficos({
             ) : (
               <div className="inline-flex items-center gap-1.5 bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 px-3 py-1.5 rounded-xl text-xs font-semibold">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span>Visão Integral da Rede Estadual</span>
+                <span>Visão Integral da Rede Estadual (100%)</span>
               </div>
             )}
 
             <div className="text-xs text-slate-400 sm:text-right">
               Volume total:{" "}
               <strong className="text-white font-mono font-bold text-sm">
-                {totalPontos.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 })}
+                {totalRede.toLocaleString("pt-BR", {
+                  minimumFractionDigits: 1,
+                  maximumFractionDigits: 2,
+                })}
               </strong>{" "}
-              pontos apurados
+              pontos homologados
             </div>
           </div>
         </div>
       </section>
 
-      {/* ─── 2. Quatro Cards de Síntese (As 4 Fatias) ────────────────────────── */}
+      {/* ─── 2. Quatro Cards Executivos de Síntese ───────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Fatia 1: IDEB Regular */}
-        <div
-          onMouseEnter={() => setActiveIndex(0)}
-          onMouseLeave={() => setActiveIndex(null)}
-          className={`bg-white rounded-xl border p-4.5 flex flex-col justify-between transition-all duration-150 ${
-            activeIndex === 0
-              ? "ring-2 ring-sky-500 border-sky-400 shadow-md bg-sky-50/20"
-              : "border-slate-200/80 shadow-xs hover:border-sky-300"
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold tracking-wider text-sky-700 uppercase">
-              1. IDEB (Regular)
-            </span>
-            <div className="w-7 h-7 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center">
-              <Award className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="my-3 flex items-baseline justify-between">
-            <span className="text-2xl sm:text-3xl font-bold font-mono text-slate-900 tabular-nums">
-              {(composicao[0]?.value ?? 0).toLocaleString("pt-BR", {
-                minimumFractionDigits: 1,
-                maximumFractionDigits: 2,
-              })}
-            </span>
-            <span className="text-xs font-bold text-sky-700 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-full tabular-nums">
-              {composicao[0]?.percent ?? 0}%
-            </span>
-          </div>
-          <p className="text-[11px] text-slate-500 line-clamp-2">
-            Meta pactuada, crescimento positivo, destaque RI e rendimento.
-          </p>
-        </div>
+        {slicesWithAngles.map((item) => {
+          const Icon = item.config.icon;
+          const isHovered = hoveredSliceId === item.id;
 
-        {/* Fatia 2: Alfabetização */}
-        <div
-          onMouseEnter={() => setActiveIndex(1)}
-          onMouseLeave={() => setActiveIndex(null)}
-          className={`bg-white rounded-xl border p-4.5 flex flex-col justify-between transition-all duration-150 ${
-            activeIndex === 1
-              ? "ring-2 ring-emerald-500 border-emerald-400 shadow-md bg-emerald-50/20"
-              : "border-slate-200/80 shadow-xs hover:border-emerald-300"
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold tracking-wider text-emerald-700 uppercase">
-              2. Alfabetização
-            </span>
-            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <BookOpen className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="my-3 flex items-baseline justify-between">
-            <span className="text-2xl sm:text-3xl font-bold font-mono text-slate-900 tabular-nums">
-              {(composicao[1]?.value ?? 0).toLocaleString("pt-BR", {
-                minimumFractionDigits: 1,
-                maximumFractionDigits: 2,
-              })}
-            </span>
-            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full tabular-nums">
-              {composicao[1]?.percent ?? 0}%
-            </span>
-          </div>
-          <p className="text-[11px] text-slate-500 line-clamp-2">
-            Fatores específicos de alfabetização apurados para 1º e 2º ano.
-          </p>
-        </div>
+          return (
+            <div
+              key={item.id}
+              role="button"
+              tabIndex={0}
+              onMouseEnter={() => setHoveredSliceId(item.id)}
+              onMouseLeave={() => setHoveredSliceId(null)}
+              onClick={() => {
+                if (item.id === "ideb") setIdebExpanded((prev) => !prev);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  if (item.id === "ideb") setIdebExpanded((prev) => !prev);
+                }
+              }}
+              title={
+                item.id === "ideb"
+                  ? "Clique para alternar o micrográfico do IDEB"
+                  : item.descricao
+              }
+              className={`bg-white rounded-xl border p-4.5 flex flex-col justify-between transition-all duration-150 cursor-pointer ${
+                isHovered
+                  ? "ring-2 shadow-md translate-y-[-1px]"
+                  : "border-slate-200/80 shadow-xs hover:border-slate-300"
+              }`}
+              style={{
+                borderColor: isHovered ? item.config.color : undefined,
+                boxShadow: isHovered
+                  ? `0 4px 12px ${item.config.color}20`
+                  : undefined,
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <span
+                  className="text-xs font-semibold tracking-wider uppercase"
+                  style={{ color: item.config.color }}
+                >
+                  {item.nome}
+                </span>
+                <div
+                  className={`w-7 h-7 rounded-lg flex items-center justify-center ${item.config.bgBadge}`}
+                  style={{ color: item.config.color }}
+                >
+                  <Icon className="w-4 h-4" />
+                </div>
+              </div>
 
-        {/* Fatia 3: EJA */}
-        <div
-          onMouseEnter={() => setActiveIndex(2)}
-          onMouseLeave={() => setActiveIndex(null)}
-          className={`bg-white rounded-xl border p-4.5 flex flex-col justify-between transition-all duration-150 ${
-            activeIndex === 2
-              ? "ring-2 ring-amber-500 border-amber-400 shadow-md bg-amber-50/20"
-              : "border-slate-200/80 shadow-xs hover:border-amber-300"
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold tracking-wider text-amber-700 uppercase">
-              3. Total EJA
-            </span>
-            <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-              <Users className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="my-3 flex items-baseline justify-between">
-            <span className="text-2xl sm:text-3xl font-bold font-mono text-slate-900 tabular-nums">
-              {(composicao[2]?.value ?? 0).toLocaleString("pt-BR", {
-                minimumFractionDigits: 1,
-                maximumFractionDigits: 2,
-              })}
-            </span>
-            <span className="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full tabular-nums">
-              {composicao[2]?.percent ?? 0}%
-            </span>
-          </div>
-          <p className="text-[11px] text-slate-500 line-clamp-2">
-            Educação de Jovens e Adultos (Iniciais + Finais + Médio).
-          </p>
-        </div>
+              <div className="my-3 flex items-baseline justify-between">
+                <span className="text-2xl sm:text-3xl font-bold font-mono text-slate-900 tabular-nums">
+                  {item.valor.toLocaleString("pt-BR", {
+                    minimumFractionDigits: 1,
+                    maximumFractionDigits: 2,
+                  })}
+                </span>
+                <span
+                  className={`text-xs font-bold px-2 py-0.5 rounded-full border tabular-nums ${item.config.bgBadge} ${item.config.borderBadge}`}
+                  style={{ color: item.config.color }}
+                >
+                  {item.percent}%
+                </span>
+              </div>
 
-        {/* Fatia 4: AEE */}
-        <div
-          onMouseEnter={() => setActiveIndex(3)}
-          onMouseLeave={() => setActiveIndex(null)}
-          className={`bg-white rounded-xl border p-4.5 flex flex-col justify-between transition-all duration-150 ${
-            activeIndex === 3
-              ? "ring-2 ring-purple-500 border-purple-400 shadow-md bg-purple-50/20"
-              : "border-slate-200/80 shadow-xs hover:border-purple-300"
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold tracking-wider text-purple-700 uppercase">
-              4. Total AEE
-            </span>
-            <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
-              <HeartHandshake className="w-4 h-4" />
+              <div className="flex items-center justify-between text-[11px] text-slate-500">
+                <span className="truncate">{item.descricao}</span>
+                {item.id === "ideb" && (
+                  <span className="shrink-0 font-semibold text-sky-700 ml-1">
+                    {idebExpanded ? "▲" : "▼"}
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
-          <div className="my-3 flex items-baseline justify-between">
-            <span className="text-2xl sm:text-3xl font-bold font-mono text-slate-900 tabular-nums">
-              {(composicao[3]?.value ?? 0).toLocaleString("pt-BR", {
-                minimumFractionDigits: 1,
-                maximumFractionDigits: 2,
-              })}
-            </span>
-            <span className="text-xs font-bold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-full tabular-nums">
-              {composicao[3]?.percent ?? 0}%
-            </span>
-          </div>
-          <p className="text-[11px] text-slate-500 line-clamp-2">
-            Atendimento Educacional Especializado apurado oficialmente.
-          </p>
-        </div>
+          );
+        })}
       </div>
 
-      {/* ─── 3. Bloco Principal: Donut Chart Central + Detalhamento Comparativo ─── */}
+      {/* ─── 3. Bloco Principal: Donut SVG + Painel Analítico ─────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-        {/* Gráfico Donut Moderno */}
-        <div className="lg:col-span-6 bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs flex flex-col justify-between">
+        {/* Coluna Esquerda: Donut SVG Matemático */}
+        <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <PieIcon className="w-4 h-4 text-sky-600" />
-                <span>Composição Global da Bonificação</span>
+                <span>Donut Analítico da Rede</span>
               </h3>
               <p className="text-xs text-slate-500">
-                Passe o cursor sobre as fatias para inspecionar os valores
+                Proporção ponderada de cada modalidade no teto apurado
               </p>
             </div>
-            <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md">
-              4 Fatias
+            <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+              SVG Nativo
             </span>
           </div>
 
-          <div className="relative my-4 flex items-center justify-center min-h-[320px]">
-            {mounted && totalPontos > 0 ? (
-              <ResponsiveContainer width="100%" height={320}>
-                <PieChart>
-                  <Tooltip
-                    content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
-                        const item = payload[0].payload as ItemComposicaoBonus;
-                        return (
-                          <div className="bg-slate-900/95 backdrop-blur-xs text-white p-3 rounded-xl shadow-lg border border-slate-700 text-xs space-y-1">
-                            <div className="flex items-center gap-2 font-bold text-sm">
-                              <span
-                                className="w-3 h-3 rounded-full"
-                                style={{ backgroundColor: item.color }}
-                              />
-                              <span>{item.name}</span>
-                            </div>
-                            <div className="text-slate-300">
-                              Volume:{" "}
-                              <strong className="text-white font-mono">
-                                {item.value.toLocaleString("pt-BR", {
-                                  minimumFractionDigits: 1,
-                                  maximumFractionDigits: 2,
-                                })}
-                              </strong>{" "}
-                              pts
-                            </div>
-                            <div className="text-slate-300">
-                              Participação:{" "}
-                              <strong className="text-sky-300">{item.percent}%</strong>
-                            </div>
-                            {item.descricao && (
-                              <p className="text-[11px] text-slate-400 pt-1 border-t border-slate-800">
-                                {item.descricao}
-                              </p>
-                            )}
-                          </div>
-                        );
-                      }
-                      return null;
-                    }}
-                  />
-                  <Pie
-                    data={composicao}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={80}
-                    outerRadius={125}
-                    paddingAngle={3}
-                    cornerRadius={5}
-                    onMouseEnter={(_, index) => setActiveIndex(index)}
-                    onMouseLeave={() => setActiveIndex(null)}
-                  >
-                    {composicao.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={entry.color}
+          {/* Área do SVG Matemático */}
+          <div className="relative my-4 flex items-center justify-center min-h-[300px]">
+            {totalRede > 0 ? (
+              <svg
+                viewBox="0 0 320 320"
+                className="w-full max-w-[300px] h-auto overflow-visible select-none"
+              >
+                <defs>
+                  <filter id="donut-shadow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feDropShadow
+                      dx="0"
+                      dy="4"
+                      stdDeviation="5"
+                      floodColor="#0f172a"
+                      floodOpacity="0.18"
+                    />
+                  </filter>
+                </defs>
+
+                {/* Segmentos de Arco do Donut SVG */}
+                <g>
+                  {slicesWithAngles.map((slice) => {
+                    const isHovered = hoveredSliceId === slice.id;
+                    const innerRadius = isHovered ? 82 : 86;
+                    const outerRadius = isHovered ? 138 : 132;
+                    const pathData = describeArc(
+                      160,
+                      160,
+                      innerRadius,
+                      outerRadius,
+                      slice.startAngle,
+                      slice.endAngle
+                    );
+
+                    return (
+                      <path
+                        key={slice.id}
+                        d={pathData}
+                        fill={slice.config.color}
                         stroke="#ffffff"
-                        strokeWidth={activeIndex === index ? 3 : 1.5}
+                        strokeWidth={isHovered ? 2.5 : 1.5}
+                        filter={isHovered ? "url(#donut-shadow)" : undefined}
                         className="transition-all duration-200 cursor-pointer"
+                        onMouseEnter={() => setHoveredSliceId(slice.id)}
+                        onMouseLeave={() => setHoveredSliceId(null)}
+                        onClick={() => {
+                          if (slice.id === "ideb") setIdebExpanded((prev) => !prev);
+                        }}
                         style={{
-                          filter:
-                            activeIndex === index
-                              ? "drop-shadow(0px 4px 10px rgba(0,0,0,0.2))"
-                              : "none",
-                          opacity: activeIndex === null || activeIndex === index ? 1 : 0.45,
+                          opacity:
+                            hoveredSliceId === null || isHovered ? 1 : 0.45,
+                          transformOrigin: "160px 160px",
                         }}
                       />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="text-center py-16 text-slate-400 space-y-2">
-                <AlertCircle className="w-8 h-8 mx-auto text-slate-300" />
-                <p className="text-sm font-medium">Nenhum ponto computado no recorte atual</p>
-              </div>
-            )}
+                    );
+                  })}
+                </g>
 
-            {/* Centro do Donut: Métricas Dinâmicas ao Hover */}
-            {totalPontos > 0 && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                  {activeSlice ? activeSlice.name : "TOTAL DA REDE"}
-                </span>
-                <span className="text-2xl font-bold font-mono text-slate-900 tabular-nums">
+                {/* Centro do Donut: Métricas e Indicador */}
+                <circle cx="160" cy="160" r="76" fill="#ffffff" />
+                <text
+                  x="160"
+                  y="138"
+                  textAnchor="middle"
+                  className="text-[10px] font-bold fill-slate-400 uppercase tracking-wider"
+                >
+                  {activeSlice ? activeSlice.nome : "TOTAL DA REDE"}
+                </text>
+                <text
+                  x="160"
+                  y="166"
+                  textAnchor="middle"
+                  className="text-2xl font-bold font-mono fill-slate-900 tabular-nums"
+                >
                   {activeSlice
-                    ? activeSlice.value.toLocaleString("pt-BR", {
+                    ? activeSlice.valor.toLocaleString("pt-BR", {
                         minimumFractionDigits: 1,
                         maximumFractionDigits: 2,
                       })
-                    : totalPontos.toLocaleString("pt-BR", {
+                    : totalRede.toLocaleString("pt-BR", {
                         minimumFractionDigits: 1,
                         maximumFractionDigits: 2,
                       })}
-                </span>
-                <span className="text-xs font-semibold text-slate-500">
-                  {activeSlice ? `${activeSlice.percent}% do total` : "pontos apurados"}
-                </span>
+                </text>
+                <text
+                  x="160"
+                  y="186"
+                  textAnchor="middle"
+                  className="text-xs font-semibold fill-slate-500 tabular-nums"
+                >
+                  {activeSlice ? `${activeSlice.percent}% da rede` : "pontos apurados"}
+                </text>
+              </svg>
+            ) : (
+              <div className="text-center py-16 text-slate-400 space-y-2">
+                <AlertCircle className="w-8 h-8 mx-auto text-slate-300" />
+                <p className="text-sm font-medium">Nenhum ponto apurado no recorte</p>
               </div>
             )}
           </div>
 
-          {/* Legenda Customizada Horizontal */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3 border-t border-slate-100">
-            {composicao.map((item, idx) => (
+          {/* Legenda Horizontal com Seletor Interativo */}
+          <div className="grid grid-cols-2 gap-2 pt-3 border-t border-slate-100">
+            {slicesWithAngles.map((item) => (
               <button
-                key={item.name}
+                key={item.id}
                 type="button"
-                onMouseEnter={() => setActiveIndex(idx)}
-                onMouseLeave={() => setActiveIndex(null)}
-                className={`flex items-center gap-1.5 text-xs text-left p-1.5 rounded-lg transition-colors cursor-pointer ${
-                  activeIndex === idx ? "bg-slate-100 font-semibold" : "hover:bg-slate-50"
+                onMouseEnter={() => setHoveredSliceId(item.id)}
+                onMouseLeave={() => setHoveredSliceId(null)}
+                onClick={() => {
+                  if (item.id === "ideb") setIdebExpanded((prev) => !prev);
+                }}
+                className={`flex items-center justify-between text-xs p-2 rounded-lg transition-colors cursor-pointer border ${
+                  hoveredSliceId === item.id
+                    ? "bg-slate-50 border-slate-300 font-semibold"
+                    : "border-transparent hover:bg-slate-50"
                 }`}
               >
-                <span
-                  className="w-3 h-3 rounded-full shrink-0"
-                  style={{ backgroundColor: item.color }}
-                />
-                <span className="text-slate-700 truncate">{item.name}</span>
+                <div className="flex items-center gap-1.5 truncate">
+                  <span
+                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                    style={{ backgroundColor: item.config.color }}
+                  />
+                  <span className="text-slate-700 truncate">{item.nome}</span>
+                </div>
+                <span className="font-mono font-bold text-slate-900 ml-1 shrink-0">
+                  {item.percent}%
+                </span>
               </button>
             ))}
           </div>
         </div>
 
-        {/* Detalhamento Analítico das 4 Fatias */}
-        <div className="lg:col-span-6 bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs flex flex-col justify-between space-y-4">
+        {/* Coluna Direita: Detalhamento Analítico + Micrográfico Expansível do IDEB */}
+        <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs flex flex-col justify-between space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <div>
               <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Layers className="w-4 h-4 text-emerald-600" />
-                <span>Discriminação e Peso Relativo</span>
+                <Award className="w-4 h-4 text-sky-600" />
+                <span>Discriminação das Modalidades</span>
               </h3>
               <p className="text-xs text-slate-500">
-                Detalhamento dos componentes de pontuação de cada modalidade
+                Detalhamento dos valores e micrográfico de desdobramento do IDEB
               </p>
             </div>
-            <div className="text-right">
-              <span className="text-xs font-bold font-mono text-slate-900 bg-slate-100 px-2 py-1 rounded">
-                100,0%
-              </span>
-            </div>
+            <span className="text-xs font-bold font-mono text-slate-700 bg-slate-100 px-2 py-1 rounded">
+              Base: 100,0%
+            </span>
           </div>
 
-          <div className="space-y-4 divide-y divide-slate-100">
-            {composicao.map((item, idx) => {
-              const isHovered = activeIndex === idx;
+          <div className="space-y-3.5">
+            {slicesWithAngles.map((item) => {
+              const isHovered = hoveredSliceId === item.id;
+              const isIdeb = item.id === "ideb";
 
               return (
                 <div
-                  key={item.name}
-                  onMouseEnter={() => setActiveIndex(idx)}
-                  onMouseLeave={() => setActiveIndex(null)}
-                  className={`pt-3 first:pt-0 transition-colors p-2.5 rounded-xl ${
-                    isHovered ? "bg-slate-50/80 ring-1 ring-slate-300" : ""
+                  key={item.id}
+                  onMouseEnter={() => setHoveredSliceId(item.id)}
+                  onMouseLeave={() => setHoveredSliceId(null)}
+                  className={`p-3.5 rounded-xl border transition-all duration-150 ${
+                    isHovered
+                      ? "bg-slate-50/90 border-slate-300 shadow-2xs"
+                      : "bg-white border-slate-150 hover:border-slate-200"
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1.5">
                     <div className="flex items-center gap-2">
                       <span
-                        className="w-3.5 h-3.5 rounded-md shrink-0 shadow-2xs"
-                        style={{ backgroundColor: item.color }}
+                        className="w-3.5 h-3.5 rounded-md shrink-0"
+                        style={{ backgroundColor: item.config.color }}
                       />
-                      <span className="text-sm font-semibold text-slate-900">{item.name}</span>
+                      <span className="text-sm font-bold text-slate-900">
+                        {item.nome}
+                      </span>
                     </div>
 
                     <div className="flex items-center gap-2">
                       <span className="font-mono font-bold text-slate-900 text-sm">
-                        {item.value.toLocaleString("pt-BR", {
+                        {item.valor.toLocaleString("pt-BR", {
                           minimumFractionDigits: 1,
                           maximumFractionDigits: 2,
                         })}
                       </span>
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 tabular-nums">
+                      <span
+                        className={`text-xs font-bold px-2 py-0.5 rounded-full border tabular-nums ${item.config.bgBadge} ${item.config.borderBadge}`}
+                        style={{ color: item.config.color }}
+                      >
                         {item.percent}%
                       </span>
                     </div>
                   </div>
 
-                  {/* Barra de Progresso */}
+                  {/* Barra Proporcional */}
                   <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden mb-1.5">
                     <div
                       className="h-full rounded-full transition-all duration-500"
                       style={{
                         width: `${Math.min(100, Math.max(0, item.percent))}%`,
-                        backgroundColor: item.color,
+                        backgroundColor: item.config.color,
                       }}
                     />
                   </div>
 
-                  <p className="text-xs text-slate-500">{item.descricao}</p>
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <span>{item.descricao}</span>
+                    {isIdeb && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIdebExpanded((prev) => !prev);
+                        }}
+                        className="inline-flex items-center gap-1 font-semibold text-sky-700 hover:text-sky-900 transition-colors ml-2 shrink-0 cursor-pointer text-xs"
+                      >
+                        <span>{idebExpanded ? "Ocultar 4 pilares" : "Ver 4 pilares"}</span>
+                        {idebExpanded ? (
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        ) : (
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    )}
+                  </div>
 
-                  {/* Sub-discriminação específica do IDEB Regular */}
-                  {item.name.includes("IDEB") && detalhesIdeb && (
-                    <div className="mt-2.5 pt-2 border-t border-slate-200/70 grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      <div className="bg-sky-50/60 p-2 rounded-lg border border-sky-100 text-[11px]">
-                        <span className="text-slate-500 block">14º (Meta)</span>
-                        <strong className="font-mono text-sky-900 text-xs">
-                          {detalhesIdeb.meta.toLocaleString("pt-BR")} pts
-                        </strong>
+                  {/* ─── MICROGRÁFICO EXPANSÍVEL DO IDEB (REGULAR) ────────────── */}
+                  {isIdeb && idebExpanded && idebSubComponents.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-slate-200/80 space-y-2.5 animate-in fade-in duration-200">
+                      <div className="flex items-center justify-between text-xs text-slate-600">
+                        <span className="font-bold flex items-center gap-1 text-slate-800">
+                          <Sparkles className="w-3.5 h-3.5 text-sky-600" />
+                          <span>Micrográfico de Desdobramento dos 4 Pilares do IDEB</span>
+                        </span>
+                        <span className="text-[11px] text-slate-500">
+                          Total IDEB:{" "}
+                          <strong className="font-mono font-semibold text-slate-800">
+                            {item.valor.toLocaleString("pt-BR")} pts
+                          </strong>
+                        </span>
                       </div>
-                      <div className="bg-blue-50/60 p-2 rounded-lg border border-blue-100 text-[11px]">
-                        <span className="text-slate-500 block">15º (Cresc.)</span>
-                        <strong className="font-mono text-blue-900 text-xs">
-                          {detalhesIdeb.crescimento.toLocaleString("pt-BR", {
-                            minimumFractionDigits: 1,
-                          })}{" "}
-                          pts
-                        </strong>
+
+                      {/* Barra Segmentada de Composição do IDEB */}
+                      <div className="w-full h-3 bg-slate-100 rounded-md overflow-hidden flex shadow-2xs">
+                        {idebSubComponents.map((sub) => (
+                          <div
+                            key={sub.id}
+                            title={`${sub.label}: ${sub.value.toLocaleString("pt-BR")} pts (${sub.pctOfIdeb}% do IDEB)`}
+                            style={{
+                              width: `${sub.pctOfIdeb}%`,
+                              backgroundColor: sub.color,
+                            }}
+                            className="h-full transition-all duration-300 hover:brightness-110"
+                          />
+                        ))}
                       </div>
-                      <div className="bg-amber-50/60 p-2 rounded-lg border border-amber-100 text-[11px]">
-                        <span className="text-slate-500 block">16º (RI)</span>
-                        <strong className="font-mono text-amber-900 text-xs">
-                          {detalhesIdeb.destaque_ri.toLocaleString("pt-BR")} pts
-                        </strong>
-                      </div>
-                      <div className="bg-slate-100/70 p-2 rounded-lg border border-slate-200 text-[11px]">
-                        <span className="text-slate-500 block">Fluxo</span>
-                        <strong className="font-mono text-slate-800 text-xs">
-                          {detalhesIdeb.fluxo.toLocaleString("pt-BR", {
-                            minimumFractionDigits: 1,
-                          })}{" "}
-                          pts
-                        </strong>
+
+                      {/* 4 Cards de Detalhamento dos Pilares */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                        {idebSubComponents.map((sub) => {
+                          const SubIcon = sub.icon;
+                          return (
+                            <div
+                              key={sub.id}
+                              className="bg-white rounded-lg border border-slate-200 p-2.5 flex flex-col justify-between hover:border-slate-300 transition-colors shadow-2xs"
+                            >
+                              <div className="flex items-center justify-between text-xs">
+                                <div className="flex items-center gap-1.5 truncate">
+                                  <span
+                                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                                    style={{ backgroundColor: sub.color }}
+                                  />
+                                  <strong className="text-slate-800 truncate text-[11px]">
+                                    {sub.shortLabel}
+                                  </strong>
+                                </div>
+                                <span className="text-[10px] font-semibold text-slate-500 bg-slate-50 px-1.5 py-0.2 rounded border border-slate-200">
+                                  {sub.badgeText}
+                                </span>
+                              </div>
+
+                              <div className="my-1.5 flex items-baseline justify-between">
+                                <span className="font-mono font-bold text-slate-900 text-sm">
+                                  {sub.value.toLocaleString("pt-BR", {
+                                    minimumFractionDigits: 1,
+                                    maximumFractionDigits: 2,
+                                  })}
+                                </span>
+                                <div className="flex items-center gap-1 text-[11px]">
+                                  <span className="font-bold text-slate-700">
+                                    {sub.pctOfIdeb}%
+                                  </span>
+                                  <span className="text-slate-400">do IDEB</span>
+                                </div>
+                              </div>
+
+                              <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden mb-1">
+                                <div
+                                  className="h-full rounded-full"
+                                  style={{
+                                    width: `${sub.pctOfIdeb}%`,
+                                    backgroundColor: sub.color,
+                                  }}
+                                />
+                              </div>
+
+                              <p className="text-[10px] text-slate-400 truncate" title={sub.subtext}>
+                                {sub.subtext}
+                              </p>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -585,14 +812,14 @@ export default function TabGraficos({
         <HelpCircle className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
         <div className="space-y-1">
           <strong className="font-semibold text-slate-800 block">
-            Metodologia Oficial de Consolidação (Lei Estadual nº 10.435/2024):
+            Base Normativa e Regras Oficiais de Apuração ({data?.base_legal || "Lei Estadual nº 10.435/2024"}):
           </strong>
           <p className="leading-relaxed">
-            A pontuação consolidada reflete a soma direta dos índices apurados para a rede estadual:
-            o ciclo <strong>IDEB Regular</strong> totaliza os pontos de cumprimento de meta (14º Salário),
-            crescimento pedagógico positivo (15º Salário), destaque regional por RI (16º Salário) e índice de fluxo;
-            a <strong>Alfabetização</strong> consolida os fatores específicos do 1º e 2º ano; e as modalidades de{" "}
-            <strong>EJA</strong> e <strong>AEE</strong> integram os pontos homologados nas matrizes de atendimento especializado.
+            O volume total de bonificação ({totalRede.toLocaleString("pt-BR")} pts) é apurado a partir
+            do ciclo <strong>IDEB Regular</strong> (meta pactuada de +1,0 ponto, avanço pedagógico positivo,
+            destaque regional homologado de +1,0 e fluxo censitário), dos fatores concedidos à{" "}
+            <strong>Alfabetização</strong> (1º e 2º ano) e das modalidades especiais de{" "}
+            <strong>EJA</strong> (Iniciais, Finais e Médio) e <strong>AEE</strong> (Atendimento Educacional Especializado).
           </p>
         </div>
       </footer>

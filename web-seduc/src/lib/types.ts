@@ -92,7 +92,22 @@ export const REGIOES_INTEGRACAO_PARA = [
   "TOCANTINS",
 ] as const;
 
-export type RegiaoIntegracao = typeof REGIOES_INTEGRACAO_PARA[number];
+export interface ModalidadeDetalhesIdeb {
+  meta: number;
+  crescimento: number;
+  destaque_ri: number;
+  fluxo: number;
+}
+
+export interface ModalidadeBonus {
+  id: "ideb" | "aee" | "eja" | "alfabetizacao" | string;
+  nome: string;
+  valor: number;
+  descricao?: string;
+  detalhes?: ModalidadeDetalhesIdeb;
+  color?: string;
+  percent?: number;
+}
 
 export interface ItemComposicaoBonus {
   name: string;
@@ -103,14 +118,13 @@ export interface ItemComposicaoBonus {
 }
 
 export interface DashboardGraficosData {
-  composicao_bonus: ItemComposicaoBonus[];
-  total_pontos: number;
-  detalhes_ideb?: {
-    meta: number;
-    crescimento: number;
-    destaque_ri: number;
-    fluxo: number;
-  };
+  total_rede: number;
+  exercicio: string;
+  base_legal: string;
+  modalidades: ModalidadeBonus[];
+  composicao_bonus?: ItemComposicaoBonus[];
+  total_pontos?: number;
+  detalhes_ideb?: ModalidadeDetalhesIdeb;
   filtros_aplicados?: {
     dre?: string | null;
     municipio?: string | null;
