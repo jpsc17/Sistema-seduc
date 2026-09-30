@@ -15,47 +15,37 @@ interface KpiCardsProps {
 const mainCardConfigs = [
   {
     key: "total_escolas" as const,
-    label: "TOTAL DE ESCOLAS",
-    getCaption: () => "100% da Rede Estadual",
+    label: "TOTAL ESCOLAS / ETAPAS",
+    getCaption: (_data?: KpiData | null) => "Escolas e etapas avaliadas",
     icon: School,
     getPct: () => null,
   },
   {
     key: "escolas_publicadas" as const,
-    label: "ESCOLAS PUBLICADAS",
-    getCaption: (data: KpiData | null) => {
-      const tot = data?.total_escolas ?? 972;
-      const pub = data?.escolas_publicadas ?? 895;
-      const pct = tot > 0 ? ((pub / tot) * 100).toFixed(1).replace(".", ",") : "92,1";
-      return `${pct}% da seleção ativa`;
-    },
+    label: "ESCOLAS / ETAPAS PUBLICADAS",
+    getCaption: (_data?: KpiData | null) => "Aptas para bonificação",
     icon: CheckCircle2,
     getPct: (data: KpiData | null) => {
       const tot = data?.total_escolas ?? 972;
       const pub = data?.escolas_publicadas ?? 895;
-      return tot > 0 ? `${((pub / tot) * 100).toFixed(1).replace(".", ",")}%` : "92,1%";
+      return tot > 0 ? `${((pub / tot) * 100).toFixed(2).replace(".", ",")}%` : "92,08%";
     },
   },
   {
     key: "escolas_nao_publicadas" as const,
-    label: "NÃO PUBLICADAS",
-    getCaption: (data: KpiData | null) => {
-      const tot = data?.total_escolas ?? 972;
-      const np = data?.escolas_nao_publicadas ?? 77;
-      const pct = tot > 0 ? ((np / tot) * 100).toFixed(1).replace(".", ",") : "7,9";
-      return `${pct}% da seleção ativa`;
-    },
+    label: "ESCOLAS / ETAPAS NÃO PUBLICADAS",
+    getCaption: (_data?: KpiData | null) => "Pendência de fluxo / dados",
     icon: AlertOctagon,
     getPct: (data: KpiData | null) => {
       const tot = data?.total_escolas ?? 972;
       const np = data?.escolas_nao_publicadas ?? 77;
-      return tot > 0 ? `${((np / tot) * 100).toFixed(1).replace(".", ",")}%` : "7,9%";
+      return tot > 0 ? `${((np / tot) * 100).toFixed(2).replace(".", ",")}%` : "7,92%";
     },
   },
   {
     key: "escolas_eja_aee" as const,
     label: "BÔNUS EJA E AEE",
-    getCaption: () => "Modalidades especiais",
+    getCaption: (_data?: KpiData | null) => "Modalidades especiais",
     icon: BookOpen,
     getPct: () => null,
   },
@@ -125,8 +115,8 @@ export default function KpiCards({
   const basePublicadas = data?.escolas_publicadas ?? 895;
 
   const calcPctPub = (val?: number) => {
-    if (val === undefined || val === null || !basePublicadas || basePublicadas === 0) return "0,0%";
-    return `${((val / basePublicadas) * 100).toFixed(1).replace(".", ",")}%`;
+    if (val === undefined || val === null || !basePublicadas || basePublicadas === 0) return "0,00%";
+    return `${((val / basePublicadas) * 100).toFixed(2).replace(".", ",")}%`;
   };
 
   const handleCardClick = (cardKey: CardFilterType) => {
