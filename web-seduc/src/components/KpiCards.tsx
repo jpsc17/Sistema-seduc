@@ -15,8 +15,8 @@ interface KpiCardsProps {
 const mainCardConfigs = [
   {
     key: "total_escolas" as const,
-    label: "TOTAL ESCOLAS / ETAPAS",
-    getCaption: (_data?: KpiData | null) => "Escolas e etapas avaliadas",
+    label: "TOTAL DE ESCOLAS",
+    getCaption: (_data?: KpiData | null) => "100% da rede estadual",
     icon: School,
     getPct: () => null,
   },
