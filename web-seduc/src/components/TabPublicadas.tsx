@@ -236,10 +236,8 @@ export default function TabPublicadas({
                 </div>
               </th>
               <th className="px-4 py-3 text-center">
-                <div className="flex flex-col items-center">
-                  <span>16º SALÁRIO</span>
-                  <span className="text-[9px] font-medium text-emerald-700 tracking-normal">Destaque RI</span>
-                </div>
+                <div>DESTAQUE EM RI</div>
+                <div className="text-[11px] font-normal text-slate-500">16º Salário</div>
               </th>
               <th className="px-4 py-3 text-right">
                 <div className="flex flex-col items-end">
