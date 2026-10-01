@@ -159,7 +159,7 @@ export default function TabNaoPublicadas({
                 <th className="px-4 py-3 text-right bg-amber-50/50 dark:bg-amber-950/20 border-l border-slate-200 tabular-nums font-semibold">
                   <div className="flex flex-col items-end">
                     <div className="flex items-center">
-                      <span>FATOR MULTIPLICADOR DOCENTE</span>
+                      <span>FATOR MULTIPLICADOR DOCENTE (ETAPA)</span>
                       <InfoTooltip content={TOOLTIP_FATOR_DOCENTE} align="right" />
                     </div>
                     <span className="text-[9px] font-normal text-amber-700/70 tracking-normal">Teto: 3,5x</span>
@@ -168,7 +168,7 @@ export default function TabNaoPublicadas({
                 <th className="px-4 py-3 text-right bg-amber-50/50 dark:bg-amber-950/20 border-l border-slate-200 tabular-nums font-semibold">
                   <div className="flex flex-col items-end">
                     <div className="flex items-center">
-                      <span>FATOR MULTIPLICADOR ADMINISTRATIVO</span>
+                      <span>FATOR MULTIPLICADOR ADMINISTRATIVO (ETAPA)</span>
                       <InfoTooltip content={TOOLTIP_FATOR_ADMIN} align="right" />
                     </div>
                     <span className="text-[9px] font-normal text-amber-700/70 tracking-normal">Teto: 3,5x</span>

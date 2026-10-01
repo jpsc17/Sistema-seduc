@@ -37,7 +37,8 @@ export type TabType =
   | "alfabetizacao"
   | "eja_aee"
   | "pontos_bonus_dre"
-  | "graficos";
+  | "graficos"
+  | "graficos_analiticos";
 
 export interface KpiData {
   total_escolas: number;
@@ -132,4 +133,77 @@ export interface DashboardGraficosData {
     etapa?: string | null;
   };
 }
+
+export interface IndicadorRedeItem {
+  id: "meta" | "crescimento" | "fluxo" | "destaque_ri";
+  nome: string;
+  descricao: string;
+  total: number;
+  count: number;
+  percent: number;
+  color: string;
+}
+
+export interface DistribuicaoPontosItem {
+  pontos: number; // 0, 1, 2, 3, 4
+  escolas: number;
+  percent: number;
+}
+
+export interface QuadranteTrajetoria {
+  id: "A" | "B" | "C" | "D";
+  titulo: string;
+  subtitulo: string;
+  descricao: string;
+  count: number;
+  percent: number;
+  crescimento: string;
+  fluxo: string;
+  badge: string;
+  corTexto: string;
+  corBg: string;
+  corBorda: string;
+  corBarra: string;
+}
+
+export interface DreComparativoItem {
+  dre: string;
+  total: number;
+  metaCount: number;
+  metaPct: number;
+  crescimentoCount: number;
+  crescimentoPct: number;
+  fluxoCount: number;
+  fluxoPct: number;
+}
+
+export type GranularidadeAnalitica = "etapa" | "escola";
+
+export interface DashboardAnaliticoData {
+  total_escolas: number;
+  exercicio: string;
+  granularidade: GranularidadeAnalitica;
+  rotulo_unidade: string; // "etapas avaliadas" | "escolas"
+  filtros_aplicados: {
+    dre?: string | null;
+    municipio?: string | null;
+    regiao_integracao?: string | null;
+    etapa?: string | null;
+  };
+  indicadores: IndicadorRedeItem[];
+  distribuicao_pontos: DistribuicaoPontosItem[];
+  matriz_trajetoria: {
+    quadranteA: QuadranteTrajetoria;
+    quadranteB: QuadranteTrajetoria;
+    quadranteC: QuadranteTrajetoria;
+    quadranteD: QuadranteTrajetoria;
+  };
+  comparativo_dre: DreComparativoItem[];
+  media_rede: {
+    metaPct: number;
+    crescimentoPct: number;
+    fluxoPct: number;
+  };
+}
+
 

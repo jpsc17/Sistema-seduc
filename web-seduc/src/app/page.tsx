@@ -16,10 +16,11 @@ import TabAlfabetizacao from "@/components/TabAlfabetizacao";
 import TabEjaAee from "@/components/TabEjaAee";
 import TabPontosBonusDre from "@/components/TabPontosBonusDre";
 import TabGraficos from "@/components/TabGraficos";
+import TabGraficosAnaliticos from "@/components/TabGraficosAnaliticos";
 import SchoolDrawer from "@/components/SchoolDrawer";
 import FooterGov from "@/components/FooterGov";
 import type { Escola, KpiData, FiltrosData, TabType } from "@/lib/types";
-import { School, AlertCircle, BookOpen, BarChart3, Award, GraduationCap, LayoutGrid } from "lucide-react";
+import { School, AlertCircle, BookOpen, BarChart3, Award, GraduationCap, LayoutGrid, TrendingUp } from "lucide-react";
 
 const TAB_LABELS: Record<TabType, string> = {
   todas: "Todas as Escolas",
@@ -28,7 +29,8 @@ const TAB_LABELS: Record<TabType, string> = {
   alfabetizacao: "Alfabetização (1º e 2º Ano)",
   eja_aee: "Bônus EJA e AEE",
   pontos_bonus_dre: "Pontos de Bônus — DRE",
-  graficos: "Painel Analítico — Gráficos",
+  graficos: "Gráficos — Executivo",
+  graficos_analiticos: "Gráficos — Analíticos de Resultados",
 };
 
 export default function Home() {
@@ -112,7 +114,7 @@ export default function Home() {
 
   // 3. Fetch Escolas / EJA / Alfabetização (DRE e Gráficos gerenciam suas próprias buscas)
   const fetchData = useCallback(async () => {
-    if (activeTab === "pontos_bonus_dre" || activeTab === "graficos") return;
+    if (activeTab === "pontos_bonus_dre" || activeTab === "graficos" || activeTab === "graficos_analiticos") return;
     setTableLoading(true);
     try {
       const params = new URLSearchParams();
@@ -451,7 +453,7 @@ export default function Home() {
         />
 
         {/* 2. CARDS DE KPI (Reativos ao filtro do topo + Interativos como Filtros Rápidos / Relatório Executivo) */}
-        {activeTab !== "graficos" && (
+        {activeTab !== "graficos" && activeTab !== "graficos_analiticos" && (
           <KpiCards
             data={kpiData}
             loading={kpiLoading}
@@ -634,6 +636,30 @@ export default function Home() {
                   Executivo
                 </span>
               </button>
+
+              {/* Nova Aba: Gráficos Analíticos de Resultados */}
+              <button
+                role="tab"
+                aria-selected={activeTab === "graficos_analiticos"}
+                onClick={() => handleTabChange("graficos_analiticos")}
+                className={`inline-flex items-center gap-2 px-3.5 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === "graficos_analiticos"
+                    ? "bg-white text-slate-900 shadow-xs font-semibold"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-white/50"
+                }`}
+              >
+                <TrendingUp className={`w-4 h-4 ${activeTab === "graficos_analiticos" ? "text-emerald-600" : "text-slate-400"}`} />
+                <span>Gráficos</span>
+                <span
+                  className={`text-xs px-1.5 py-0.5 rounded-md font-medium ${
+                    activeTab === "graficos_analiticos"
+                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                      : "bg-slate-200/50 text-slate-500"
+                  }`}
+                >
+                  Analíticos
+                </span>
+              </button>
             </div>
           </div>
 
@@ -694,6 +720,17 @@ export default function Home() {
 
             {activeTab === "graficos" && (
               <TabGraficos
+                dre={dre}
+                municipio={municipio}
+                regiaoIntegracao={regiaoIntegracao}
+                etapa={etapa}
+                onClearFilters={handleClearFilters}
+                onSelectEscola={(cod, etapa) => setSelectedSchool({ codigo: cod, etapa: etapa ?? null })}
+              />
+            )}
+
+            {activeTab === "graficos_analiticos" && (
+              <TabGraficosAnaliticos
                 dre={dre}
                 municipio={municipio}
                 regiaoIntegracao={regiaoIntegracao}
