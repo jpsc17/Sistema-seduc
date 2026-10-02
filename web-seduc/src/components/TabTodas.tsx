@@ -173,7 +173,7 @@ export default function TabTodas({
               <th className="px-4 py-3 text-right bg-amber-50/50 border-l border-slate-200 tabular-nums font-semibold">
                 <div className="flex flex-col items-end">
                   <div className="flex items-center">
-                    <span>FATOR MULTIPLICADOR ADMINISTRATIVO (ETAPA)</span>
+                    <span>FATOR MULTIPLICADOR ADMINISTRATIVO</span>
                     <InfoTooltip content={TOOLTIP_FATOR_ADMIN} align="right" />
                   </div>
                   <span className="text-[9px] font-normal text-amber-700/70 tracking-normal">Teto: 3,5x</span>
@@ -244,7 +244,7 @@ export default function TabTodas({
                     ) : (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200/60">
                         <AlertTriangle className="w-3 h-3 text-amber-600" />
-                        Pendência Fluxo
+                        Não Publicada
                       </span>
                     )}
                   </td>
@@ -353,7 +353,7 @@ export default function TabTodas({
                     </span>
                   ) : (
                     <span className="px-2 py-0.5 text-xs font-semibold rounded bg-amber-50 text-amber-700 border border-amber-200/60">
-                      Pendência Fluxo
+                      Não Publicada
                     </span>
                   )}
                   {escola.elegivel_16_salario && (

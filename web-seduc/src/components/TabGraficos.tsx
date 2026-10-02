@@ -576,7 +576,7 @@ export default function TabGraficos({
                   textAnchor="middle"
                   className="text-xs font-semibold fill-slate-500 tabular-nums"
                 >
-                  {activeSlice ? `${activeSlice.percent}% da rede` : "pontos apurados"}
+                  {activeSlice ? `${activeSlice.percent}% da rede` : "pontos / salários"}
                 </text>
               </svg>
             ) : (
