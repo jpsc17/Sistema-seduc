@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     } else if (cardFilter === "crescimento") {
       conditions.push(`ponto_crescimento > 0`);
     } else if (cardFilter === "fluxo") {
-      conditions.push(`(atingiu_meta IS NULL OR atingiu_meta < 1) AND (ponto_crescimento IS NULL OR ponto_crescimento <= 0) AND fluxo > 0`);
+      conditions.push(`(atingiu_meta IS NULL OR atingiu_meta < 1) AND (ponto_crescimento IS NULL OR ponto_crescimento <= 0) AND fluxo > 0.98`);
     } else if (cardFilter === "zero") {
       conditions.push(`bonus_professor = 0.0`);
     }

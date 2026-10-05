@@ -24,7 +24,7 @@ export default function NavBar({ activeTab, onSelectTab }: NavBarProps = {}) {
 
           <div className="flex items-center space-x-4 text-xs text-slate-500">
             <a
-              href="https://seduc.pa.gov.br"
+              href="https://www8.seduc.pa.gov.br/ideb/login"
               target="_blank"
               rel="noopener noreferrer"
               className="hover:text-slate-900 transition-colors"
@@ -32,7 +32,7 @@ export default function NavBar({ activeTab, onSelectTab }: NavBarProps = {}) {
               Legislação &bull; Portarias
             </a>
             <span>&bull;</span>
-            <span className="font-medium text-slate-700">SEDUC / SECTET</span>
+            <span className="font-medium text-slate-700">SECRETARIA ADJUNTA DE GESTÃO DE PESSOAS</span>
           </div>
         </div>
       </div>

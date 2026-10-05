@@ -84,7 +84,7 @@ const analyticalCards = [
     title: "Atingiram Somente Fluxo",
     caption: "Meta não atingida e cresc. ≤ 0",
     icon: Activity,
-    badgeText: "Fluxo > 0",
+    badgeText: "Fluxo > 0,98",
     badgeClass: "bg-amber-50 text-amber-700 border-amber-200/60",
     valColor: "text-slate-800",
     pctColor: "text-amber-700/80 bg-amber-50/70 border-amber-200/50",

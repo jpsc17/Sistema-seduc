@@ -43,7 +43,7 @@ export default function HeaderGov({ onReset }: HeaderGovProps) {
                 Secretaria de Estado de Educação
               </h2>
               <span className="block text-xs text-[#A71B2B] font-semibold mt-0.5">
-                SEDUC &bull; Sistema de Gestão e Auditoria de Resultados
+                SECRETARIA ADJUNTA DE GESTÃO DE PESSOAS
               </span>
             </div>
           </div>

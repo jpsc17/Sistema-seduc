@@ -42,7 +42,7 @@ export default function Breadcrumb({ currentTabName, onReset }: BreadcrumbProps)
         </li>
         <li aria-current="location">
           <span className="font-semibold text-slate-800">
-            {currentTabName || "Resultados Educacionais e Índice de Bônus 2025"}
+            {currentTabName || "Resultados Educacionais e Informação do Fator de Multiplicação 2025"}
           </span>
         </li>
       </ol>

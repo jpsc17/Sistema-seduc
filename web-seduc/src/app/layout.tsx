@@ -10,7 +10,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Resultados Educacionais e Índice de Bônus das DREs e Escolas Estaduais — SEDUC-PA",
+  title: "Resultados Educacionais e Informação do Fator de Multiplicação das DREs e Escolas Estaduais — SEDUC - Secretaria Adjunta de Gestão de Pessoas",
   description:
     "Portal oficial de consulta, auditoria e acompanhamento de resultados educacionais, metas do IDEB e índices de bonificação das escolas estaduais do Pará — Exercício 2025.",
   keywords: [
