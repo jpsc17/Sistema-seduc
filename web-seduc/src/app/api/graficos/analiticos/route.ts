@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import pool from "@/lib/db";
 import type {
   DashboardAnaliticoData,
@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
             MAX(regiao_integracao) AS regiao_integracao,
             MAX(CASE WHEN atingiu_meta >= 1 THEN 1 ELSE 0 END) AS is_meta,
             MAX(CASE WHEN ponto_crescimento > 0 THEN 1 ELSE 0 END) AS is_crescimento,
-            MAX(CASE WHEN fluxo > 0.98 THEN 1 ELSE 0 END) AS is_fluxo,
+            MAX(CASE WHEN fluxo > 0 THEN 1 ELSE 0 END) AS is_fluxo,
             MAX(CASE WHEN elegivel_16_salario = TRUE OR ponto_regiao_integracao = 1.0 THEN 1 ELSE 0 END) AS is_destaque_ri
           FROM escola_filtrada
           GROUP BY codigo_escola
@@ -172,7 +172,7 @@ export async function GET(request: NextRequest) {
             MAX(regional_dre) AS regional_dre,
             MAX(CASE WHEN atingiu_meta >= 1 THEN 1 ELSE 0 END) AS is_meta,
             MAX(CASE WHEN ponto_crescimento > 0 THEN 1 ELSE 0 END) AS is_crescimento,
-            MAX(CASE WHEN fluxo > 0.98 THEN 1 ELSE 0 END) AS is_fluxo
+            MAX(CASE WHEN fluxo > 0 THEN 1 ELSE 0 END) AS is_fluxo
           FROM escola_filtrada
           GROUP BY codigo_escola
         )
@@ -195,12 +195,12 @@ export async function GET(request: NextRequest) {
             regional_dre,
             (CASE WHEN atingiu_meta >= 1 THEN 1 ELSE 0 END) AS is_meta,
             (CASE WHEN ponto_crescimento > 0 THEN 1 ELSE 0 END) AS is_crescimento,
-            (CASE WHEN fluxo > 0.98 THEN 1 ELSE 0 END) AS is_fluxo,
+            (CASE WHEN fluxo > 0 THEN 1 ELSE 0 END) AS is_fluxo,
             (CASE WHEN elegivel_16_salario = TRUE OR ponto_regiao_integracao = 1.0 THEN 1 ELSE 0 END) AS is_destaque_ri,
             (
               (CASE WHEN atingiu_meta >= 1 THEN 1 ELSE 0 END) +
               (CASE WHEN ponto_crescimento > 0 THEN 1 ELSE 0 END) +
-              (CASE WHEN fluxo > 0.98 THEN 1 ELSE 0 END) +
+              (CASE WHEN fluxo > 0 THEN 1 ELSE 0 END) +
               (CASE WHEN elegivel_16_salario = TRUE OR ponto_regiao_integracao = 1.0 THEN 1 ELSE 0 END)
             ) AS pontos
           FROM seduc.vw_escola_resultado_completo
@@ -230,7 +230,7 @@ export async function GET(request: NextRequest) {
           COUNT(*)::int AS total,
           COALESCE(SUM(CASE WHEN atingiu_meta >= 1 THEN 1 ELSE 0 END), 0)::int AS meta_count,
           COALESCE(SUM(CASE WHEN ponto_crescimento > 0 THEN 1 ELSE 0 END), 0)::int AS crescimento_count,
-          COALESCE(SUM(CASE WHEN fluxo > 0.98 THEN 1 ELSE 0 END), 0)::int AS fluxo_count
+          COALESCE(SUM(CASE WHEN fluxo > 0 THEN 1 ELSE 0 END), 0)::int AS fluxo_count
         FROM seduc.vw_escola_resultado_completo
         ${whereClause}
         GROUP BY regional_dre
